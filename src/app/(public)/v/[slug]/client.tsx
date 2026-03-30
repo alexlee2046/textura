@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { MaterialGrid } from "@/components/vendor/material-grid";
+import { Button } from "@/components/ui/button";
 import Image from "next/image";
 
 type VendorPageClientProps = {
@@ -25,7 +26,6 @@ export function VendorPageClient({
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 space-y-8">
-      {/* Hero section */}
       <section className="rounded-xl bg-white p-6 shadow-sm dark:bg-zinc-900 md:p-8">
         <h1 className="text-2xl font-bold md:text-3xl">
           在你的家具上试试{" "}
@@ -43,7 +43,6 @@ export function VendorPageClient({
         </div>
       </section>
 
-      {/* Material selection */}
       <section>
         <h2 className="mb-4 text-lg font-semibold">选择材质</h2>
         <MaterialGrid
@@ -53,7 +52,6 @@ export function VendorPageClient({
         />
       </section>
 
-      {/* Vendor info */}
       {(description || wechatQr) && (
         <section className="rounded-xl bg-white p-6 shadow-sm dark:bg-zinc-900 md:p-8">
           <h2 className="mb-4 text-lg font-semibold">关于 {orgName}</h2>
@@ -77,23 +75,17 @@ export function VendorPageClient({
         </section>
       )}
 
-      {/* Sticky bottom bar */}
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-white/90 backdrop-blur-md dark:bg-zinc-950/90">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4">
           <span className="text-sm text-muted-foreground">
             {selectedMaterialId ? "已选择 1 种材质" : "请选择材质"}
           </span>
-          <button
-            type="button"
-            disabled={!selectedMaterialId}
-            className="rounded-lg bg-primary px-6 py-2 text-sm font-medium text-primary-foreground transition-opacity disabled:opacity-40"
-          >
+          <Button size="lg" disabled={!selectedMaterialId}>
             申请样品
-          </button>
+          </Button>
         </div>
       </div>
 
-      {/* Bottom bar spacer */}
       <div className="h-16" />
     </div>
   );

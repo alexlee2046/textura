@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import { getOrgBySlug } from "@/lib/dal";
 import { notFound } from "next/navigation";
 import { VendorPageClient } from "./client";
 
@@ -11,23 +11,7 @@ export default async function VendorPage({
 }) {
   const { slug } = await params;
 
-  const org = await prisma.organization.findUnique({
-    where: { slug },
-    select: {
-      id: true,
-      name: true,
-      slug: true,
-      description: true,
-      wechatQr: true,
-      _count: {
-        select: {
-          materials: {
-            where: { status: "active", deletedAt: null },
-          },
-        },
-      },
-    },
-  });
+  const org = await getOrgBySlug(slug);
 
   if (!org) notFound();
 

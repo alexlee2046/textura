@@ -7,7 +7,6 @@ export type MaterialCardProps = {
   id: string;
   name: string;
   color: string | null;
-  category: string;
   imageUrl: string | null;
   selected: boolean;
   onClick: (id: string) => void;

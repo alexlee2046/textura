@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { cache } from "react";
+import { MEMBER_STATUS, MATERIAL_STATUS, type MemberRole } from "@/lib/constants";
 
 export type AuthUser = {
   userId: string;
@@ -14,7 +15,7 @@ export type OrgContext = {
   email: string;
   orgId: string;
   orgSlug: string;
-  role: string;
+  role: MemberRole;
 };
 
 /** Require authenticated user. Redirects to /login if not authenticated. */
@@ -34,7 +35,7 @@ export const getOrgContext = cache(async (): Promise<OrgContext> => {
   const { userId, email } = await getAuthUser();
 
   const member = await prisma.organizationMember.findFirst({
-    where: { userId, status: "active" },
+    where: { userId, status: MEMBER_STATUS.ACTIVE },
     include: { organization: { select: { id: true, slug: true } } },
     orderBy: { joinedAt: "asc" },
   });
@@ -46,7 +47,7 @@ export const getOrgContext = cache(async (): Promise<OrgContext> => {
     email,
     orgId: member.organizationId,
     orgSlug: member.organization.slug,
-    role: member.role,
+    role: member.role as MemberRole,
   };
 });
 
@@ -77,18 +78,42 @@ export async function requirePlatformAdmin(): Promise<AuthUser> {
   return { userId, email };
 }
 
+/** Fetch org by slug with material count. Shared across layout & page. */
+export const getOrgBySlug = cache(async (slug: string) => {
+  return prisma.organization.findUnique({
+    where: { slug },
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      logoUrl: true,
+      description: true,
+      wechatQr: true,
+      contactEmail: true,
+      _count: {
+        select: {
+          materials: {
+            where: { status: MATERIAL_STATUS.ACTIVE, deletedAt: null },
+          },
+        },
+      },
+    },
+  });
+});
+
 /** Sync org claims to Supabase app_metadata (call after org membership changes). */
 export async function syncOrgClaims(userId: string): Promise<void> {
   const admin = createAdminClient();
 
-  const member = await prisma.organizationMember.findFirst({
-    where: { userId, status: "active" },
-    orderBy: { joinedAt: "asc" },
-  });
-
-  const platformAdmin = await prisma.adminUser.findUnique({
-    where: { userId, isActive: true },
-  });
+  const [member, platformAdmin] = await Promise.all([
+    prisma.organizationMember.findFirst({
+      where: { userId, status: MEMBER_STATUS.ACTIVE },
+      orderBy: { joinedAt: "asc" },
+    }),
+    prisma.adminUser.findUnique({
+      where: { userId, isActive: true },
+    }),
+  ]);
 
   const { data: userData } = await admin.auth.admin.getUserById(userId);
   if (!userData.user) return;
@@ -101,7 +126,6 @@ export async function syncOrgClaims(userId: string): Promise<void> {
     is_platform_admin: !!platformAdmin,
   };
 
-  // Skip update if nothing changed
   if (
     current?.organization_id === newMeta.organization_id &&
     current?.organization_role === newMeta.organization_role &&

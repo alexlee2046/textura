@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { MATERIAL_STATUS } from "@/lib/constants";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
@@ -13,12 +14,8 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const org = await prisma.organization.findUnique({
-    where: { slug: orgSlug },
-    select: { id: true },
-  });
-
-  if (!org) {
+  const orgExists = await prisma.organization.count({ where: { slug: orgSlug } });
+  if (!orgExists) {
     return NextResponse.json(
       { error: "Organization not found" },
       { status: 404 },
@@ -27,8 +24,8 @@ export async function GET(request: NextRequest) {
 
   const materials = await prisma.material.findMany({
     where: {
-      organizationId: org.id,
-      status: "active",
+      organization: { slug: orgSlug },
+      status: MATERIAL_STATUS.ACTIVE,
       deletedAt: null,
       ...(category ? { category } : {}),
     },
