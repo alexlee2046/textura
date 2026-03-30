@@ -1,0 +1,37 @@
+{
+  "common": {
+    "login": "登录",
+    "register": "注册",
+    "logout": "退出",
+    "save": "保存",
+    "cancel": "取消",
+    "delete": "删除",
+    "edit": "编辑",
+    "upload": "上传",
+    "loading": "加载中...",
+    "submit": "提交"
+  },
+  "vendor": {
+    "tryCta": "在你的家具上试试",
+    "uploadPhoto": "上传家具照片",
+    "selectMaterial": "选择材质",
+    "generate": "生成效果图",
+    "requestSample": "申请样品",
+    "generating": "AI 生成中...",
+    "downloadHd": "下载高清图",
+    "share": "分享"
+  },
+  "inquiry": {
+    "title": "申请样品",
+    "name": "姓名",
+    "phone": "电话",
+    "company": "公司",
+    "message": "备注",
+    "success": "申请已提交，厂商将尽快与您联系"
+  },
+  "dashboard": {
+    "materials": "材质管理",
+    "inquiries": "询样管理",
+    "settings": "设置"
+  }
+}

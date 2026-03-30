@@ -1,0 +1,37 @@
+{
+  "common": {
+    "login": "Login",
+    "register": "Register",
+    "logout": "Logout",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "upload": "Upload",
+    "loading": "Loading...",
+    "submit": "Submit"
+  },
+  "vendor": {
+    "tryCta": "Try it on your furniture",
+    "uploadPhoto": "Upload furniture photo",
+    "selectMaterial": "Select material",
+    "generate": "Generate",
+    "requestSample": "Request Sample",
+    "generating": "AI generating...",
+    "downloadHd": "Download HD",
+    "share": "Share"
+  },
+  "inquiry": {
+    "title": "Request Sample",
+    "name": "Name",
+    "phone": "Phone",
+    "company": "Company",
+    "message": "Notes",
+    "success": "Request submitted. The vendor will contact you soon."
+  },
+  "dashboard": {
+    "materials": "Materials",
+    "inquiries": "Inquiries",
+    "settings": "Settings"
+  }
+}
