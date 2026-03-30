@@ -1,0 +1,162 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Organization {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String
+  slug        String   @unique
+  logoUrl     String?  @map("logo_url")
+  description String?
+  contactEmail String? @map("contact_email")
+  notifyEmail  String? @map("notify_email")
+  wechatQr    String?  @map("wechat_qr")
+  settings    Json     @default("{}")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
+
+  members     OrganizationMember[]
+  materials   Material[]
+  generations Generation[]
+  inquiries   Inquiry[]
+
+  @@map("organizations")
+}
+
+model OrganizationMember {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  role           String   @default("member")
+  status         String   @default("active")
+  joinedAt       DateTime @default(now()) @map("joined_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([organizationId, userId])
+  @@map("organization_members")
+}
+
+model AdminUser {
+  id       String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId   String  @unique @map("user_id") @db.Uuid
+  isActive Boolean @default(true) @map("is_active")
+
+  @@map("admin_users")
+}
+
+model Material {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  category       String
+
+  name           String
+  seriesCode     String?  @map("series_code")
+  color          String?
+  colorCode      String?  @map("color_code")
+
+  promptModifier String   @default("") @map("prompt_modifier")
+
+  status         String   @default("active")
+  sortOrder      Int      @default(0) @map("sort_order")
+  createdBy      String?  @map("created_by") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at")
+  deletedAt      DateTime? @map("deleted_at")
+
+  organization Organization    @relation(fields: [organizationId], references: [id])
+  images       MaterialImage[]
+  generations  Generation[]
+  inquiries    Inquiry[]
+
+  @@index([organizationId], map: "idx_materials_org")
+  @@index([organizationId, category], map: "idx_materials_category")
+  @@map("materials")
+}
+
+model MaterialImage {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  materialId     String   @map("material_id") @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+
+  url            String
+  storageKey     String   @map("storage_key")
+  isPrimary      Boolean  @default(false) @map("is_primary")
+  sortOrder      Int      @default(0) @map("sort_order")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  material Material @relation(fields: [materialId], references: [id], onDelete: Cascade)
+
+  @@map("material_images")
+}
+
+model Generation {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId   String?  @map("organization_id") @db.Uuid
+  userId           String?  @map("user_id") @db.Uuid
+  materialId       String?  @map("material_id") @db.Uuid
+
+  materialSnapshot Json     @map("material_snapshot")
+
+  type             String   @default("retexture")
+  creditCost       Int      @default(0) @map("credit_cost")
+  modelUsed        String?  @map("model_used")
+
+  inputImageUrl    String   @map("input_image_url")
+  resultImageUrl   String   @map("result_image_url")
+  shareHash        String?  @unique @map("share_hash")
+
+  metadata         Json?
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  organization Organization? @relation(fields: [organizationId], references: [id])
+  material     Material?     @relation(fields: [materialId], references: [id], onDelete: SetNull)
+  inquiries    Inquiry[]
+
+  @@index([userId, createdAt(sort: Desc)], map: "idx_gen_user")
+  @@index([organizationId, createdAt(sort: Desc)], map: "idx_gen_org")
+  @@index([shareHash], map: "idx_gen_share")
+  @@map("generations")
+}
+
+model Inquiry {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  materialId     String?  @map("material_id") @db.Uuid
+  generationId   String?  @map("generation_id") @db.Uuid
+  userId         String?  @map("user_id") @db.Uuid
+
+  contactName    String   @map("contact_name")
+  phone          String
+  company        String?
+  message        String?
+
+  status         String   @default("pending")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  material     Material?    @relation(fields: [materialId], references: [id])
+  generation   Generation?  @relation(fields: [generationId], references: [id])
+
+  @@index([organizationId, createdAt(sort: Desc)], map: "idx_inquiries_org")
+  @@map("inquiries")
+}
+
+model AuditLog {
+  id        BigInt   @id @default(autoincrement())
+  tableName String   @map("table_name")
+  recordId  String   @map("record_id") @db.Uuid
+  action    String
+  oldData   Json?    @map("old_data")
+  newData   Json?    @map("new_data")
+  changedBy String?  @map("changed_by") @db.Uuid
+  changedAt DateTime @default(now()) @map("changed_at")
+
+  @@index([tableName, recordId, changedAt(sort: Desc)], map: "idx_audit_record")
+  @@map("audit_log")
+}
