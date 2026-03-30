@@ -17,7 +17,7 @@ const ALL_CATEGORY = { key: "", label: "全部" } as const;
 type MaterialGridProps = {
   orgSlug: string;
   selectedId: string | null;
-  onSelect: (id: string) => void;
+  onSelect: (material: Material) => void;
 };
 
 export function MaterialGrid({
@@ -103,7 +103,7 @@ export function MaterialGrid({
               color={m.color}
               imageUrl={m.imageUrl}
               selected={selectedId === m.id}
-              onClick={onSelect}
+              onClick={() => onSelect(m)}
             />
           ))}
         </div>

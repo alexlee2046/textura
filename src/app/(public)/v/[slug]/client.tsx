@@ -1,9 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { MaterialGrid } from "@/components/vendor/material-grid";
+import { RetextureTool } from "@/components/vendor/retexture-tool";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
+
+type SelectedMaterial = {
+  id: string;
+  name: string;
+  color: string | null;
+  imageUrl: string | null;
+};
 
 type VendorPageClientProps = {
   orgName: string;
@@ -20,8 +28,14 @@ export function VendorPageClient({
   wechatQr,
   materialCount,
 }: VendorPageClientProps) {
-  const [selectedMaterialId, setSelectedMaterialId] = useState<string | null>(
-    null,
+  const [selectedMaterial, setSelectedMaterial] =
+    useState<SelectedMaterial | null>(null);
+
+  const handleMaterialSelect = useCallback(
+    (material: { id: string; name: string; color: string | null; imageUrl: string | null }) => {
+      setSelectedMaterial(material);
+    },
+    [],
   );
 
   return (
@@ -35,20 +49,18 @@ export function VendorPageClient({
           共 {materialCount} 种材质可供选择
         </p>
 
-        {/* AI retexture tool placeholder — Sprint 2 */}
-        <div className="mt-6 flex h-48 items-center justify-center rounded-lg border-2 border-dashed border-zinc-300 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800/50">
-          <p className="text-sm text-muted-foreground">
-            AI 换材效果预览 (Sprint 2)
-          </p>
-        </div>
+        <RetextureTool
+          orgSlug={orgSlug}
+          selectedMaterial={selectedMaterial}
+        />
       </section>
 
       <section>
         <h2 className="mb-4 text-lg font-semibold">选择材质</h2>
         <MaterialGrid
           orgSlug={orgSlug}
-          selectedId={selectedMaterialId}
-          onSelect={setSelectedMaterialId}
+          selectedId={selectedMaterial?.id ?? null}
+          onSelect={handleMaterialSelect}
         />
       </section>
 
@@ -78,9 +90,9 @@ export function VendorPageClient({
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-white/90 backdrop-blur-md dark:bg-zinc-950/90">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4">
           <span className="text-sm text-muted-foreground">
-            {selectedMaterialId ? "已选择 1 种材质" : "请选择材质"}
+            {selectedMaterial ? "已选择 1 种材质" : "请选择材质"}
           </span>
-          <Button size="lg" disabled={!selectedMaterialId}>
+          <Button size="lg" disabled={!selectedMaterial}>
             申请样品
           </Button>
         </div>

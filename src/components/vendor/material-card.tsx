@@ -9,11 +9,10 @@ export type MaterialCardProps = {
   color: string | null;
   imageUrl: string | null;
   selected: boolean;
-  onClick: (id: string) => void;
+  onClick: () => void;
 };
 
 export function MaterialCard({
-  id,
   name,
   color,
   imageUrl,
@@ -23,7 +22,7 @@ export function MaterialCard({
   return (
     <button
       type="button"
-      onClick={() => onClick(id)}
+      onClick={onClick}
       className={cn(
         "group flex flex-col overflow-hidden rounded-lg border bg-white transition-all dark:bg-zinc-900",
         selected
