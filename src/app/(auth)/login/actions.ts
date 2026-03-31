@@ -16,6 +16,13 @@ const registerSchema = z.object({
   name: z.string().min(1),
 });
 
+function sanitizeRedirect(next: string | null, fallback: string): string {
+  if (!next) return fallback;
+  // Only allow relative paths starting with / — block protocol-relative //
+  if (next.startsWith("/") && !next.startsWith("//")) return next;
+  return fallback;
+}
+
 export async function login(formData: FormData) {
   const parsed = loginSchema.safeParse({
     email: formData.get("email"),
@@ -29,8 +36,8 @@ export async function login(formData: FormData) {
 
   if (data.user) await syncOrgClaims(data.user.id);
 
-  const next = formData.get("next") as string;
-  redirect(next || "/dashboard");
+  const next = formData.get("next") as string | null;
+  redirect(sanitizeRedirect(next, "/dashboard"));
 }
 
 export async function register(formData: FormData) {
@@ -51,6 +58,6 @@ export async function register(formData: FormData) {
 
   if (data.user) await syncOrgClaims(data.user.id);
 
-  const next = formData.get("next") as string;
-  redirect(next || "/onboarding");
+  const next = formData.get("next") as string | null;
+  redirect(sanitizeRedirect(next, "/onboarding"));
 }

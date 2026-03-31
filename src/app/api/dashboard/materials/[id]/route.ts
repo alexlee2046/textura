@@ -13,15 +13,6 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     const ctx = await getOrgContext();
     const { id } = await context.params;
 
-    // Verify material belongs to org
-    const existing = await prisma.material.findFirst({
-      where: { id, organizationId: ctx.orgId, deletedAt: null },
-    });
-
-    if (!existing) {
-      return NextResponse.json({ error: "Material not found" }, { status: 404 });
-    }
-
     const formData = await request.formData();
     const category = formData.get("category") as string | null;
     const name = formData.get("name") as string | null;
@@ -47,16 +38,25 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     if (formData.has("color_code")) updateData.colorCode = colorCode || null;
     if (formData.has("prompt_modifier")) updateData.promptModifier = promptModifier || "";
 
-    // Handle image update
+    // Handle image update — ownership check + mutation in single transaction (TOCTOU-safe)
     if (image && image.size > 0) {
       const imageUrl = await saveUploadedFile(image);
 
       await prisma.$transaction(async (tx) => {
+        // Atomic ownership check: updateMany scopes to orgId + non-deleted
         if (Object.keys(updateData).length > 0) {
-          await tx.material.update({
-            where: { id },
+          const { count } = await tx.material.updateMany({
+            where: { id, organizationId: ctx.orgId, deletedAt: null },
             data: updateData,
           });
+          if (count === 0) throw new Error("MATERIAL_NOT_FOUND");
+        } else {
+          // No field updates but still need to verify ownership
+          const exists = await tx.material.findFirst({
+            where: { id, organizationId: ctx.orgId, deletedAt: null },
+            select: { id: true },
+          });
+          if (!exists) throw new Error("MATERIAL_NOT_FOUND");
         }
 
         // Upsert primary image: delete existing primary, create new one
@@ -74,16 +74,24 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         });
       });
     } else if (Object.keys(updateData).length > 0) {
-      await prisma.material.update({
-        where: { id },
+      const { count } = await prisma.material.updateMany({
+        where: { id, organizationId: ctx.orgId, deletedAt: null },
         data: updateData,
       });
+      if (count === 0) {
+        return NextResponse.json({ error: "Material not found" }, { status: 404 });
+      }
+    } else {
+      return NextResponse.json({ error: "No fields to update" }, { status: 400 });
     }
 
     revalidateVendorPage(ctx.orgSlug).catch(() => {});
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    if (error instanceof Error && error.message === "MATERIAL_NOT_FOUND") {
+      return NextResponse.json({ error: "Material not found" }, { status: 404 });
+    }
     throw error;
   }
 }
@@ -94,19 +102,15 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
     const ctx = await getOrgContext();
     const { id } = await context.params;
 
-    // Verify material belongs to org
-    const existing = await prisma.material.findFirst({
+    // Atomic ownership check + soft delete (TOCTOU-safe)
+    const { count } = await prisma.material.updateMany({
       where: { id, organizationId: ctx.orgId, deletedAt: null },
-    });
-
-    if (!existing) {
-      return NextResponse.json({ error: "Material not found" }, { status: 404 });
-    }
-
-    await prisma.material.update({
-      where: { id },
       data: { deletedAt: new Date() },
     });
+
+    if (count === 0) {
+      return NextResponse.json({ error: "Material not found" }, { status: 404 });
+    }
 
     revalidateVendorPage(ctx.orgSlug).catch(() => {});
 

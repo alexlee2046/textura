@@ -44,6 +44,7 @@ export async function GET(request: NextRequest) {
       },
     },
     orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
+    take: 200,
   });
 
   const result = materials.map((m) => ({

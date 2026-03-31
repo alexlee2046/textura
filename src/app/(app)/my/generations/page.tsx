@@ -22,6 +22,7 @@ export default async function GenerationsPage() {
   const generations = await prisma.generation.findMany({
     where: { userId },
     orderBy: { createdAt: "desc" },
+    take: 50,
     select: {
       id: true,
       resultImageUrl: true,
