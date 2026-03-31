@@ -1,3 +1,5 @@
+// NOTE: Local file storage is MVP-only. Migrate to Tencent COS for production
+// (see CLAUDE.md "Storage" section for the target architecture).
 import { writeFile, mkdir } from "fs/promises";
 import { join } from "path";
 import { nanoid } from "nanoid";

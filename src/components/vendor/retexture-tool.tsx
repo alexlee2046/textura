@@ -13,7 +13,6 @@ import { createClient } from "@/lib/supabase/client";
 // Types
 // ---------------------------------------------------------------------------
 type RetextureToolProps = {
-  orgSlug: string;
   selectedMaterial: {
     id: string;
     name: string;
@@ -94,7 +93,6 @@ function compressImage(file: File): Promise<File> {
 // Component
 // ---------------------------------------------------------------------------
 export function RetextureTool({
-  orgSlug,
   selectedMaterial,
 }: RetextureToolProps) {
   const [state, setState] = useState<ToolState>("idle");
@@ -232,7 +230,7 @@ export function RetextureTool({
   const handleShare = useCallback(async () => {
     if (!result) return;
 
-    const shareUrl = `${window.location.origin}/v/${orgSlug}?share=${result.shareHash}`;
+    const shareUrl = `${window.location.origin}/s/${result.shareHash}`;
 
     try {
       await navigator.clipboard.writeText(shareUrl);
@@ -241,7 +239,7 @@ export function RetextureTool({
       // Fallback for environments without clipboard API
       toast.info(shareUrl);
     }
-  }, [result, orgSlug]);
+  }, [result]);
 
   // ---- Render --------------------------------------------------------------
   return (

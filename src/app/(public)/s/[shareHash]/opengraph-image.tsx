@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getImageBuffer } from "@/lib/image-fetch";
+import { SITE_URL } from "@/lib/constants";
 import sharp from "sharp";
 import QRCode from "qrcode";
 
@@ -38,7 +39,6 @@ export default async function Image({
     if (!gen) throw new Error("Not found");
 
     const snapshot = gen.materialSnapshot as MaterialSnapshot;
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://textura.app";
 
     // --- Main image: before/after side-by-side ---
     let mainImage: Buffer;
@@ -85,7 +85,7 @@ export default async function Image({
 
     // --- QR Code ---
     const vendorSlug = snapshot.vendorSlug ?? gen.organization?.slug;
-    const qrUrl = vendorSlug ? `${siteUrl}/v/${vendorSlug}` : siteUrl;
+    const qrUrl = vendorSlug ? `${SITE_URL}/v/${vendorSlug}` : SITE_URL;
     let qrImage: Buffer | null = null;
     try {
       const qrPng = await QRCode.toBuffer(qrUrl, {
@@ -93,7 +93,8 @@ export default async function Image({
         margin: 1,
         color: { dark: "#FFFFFF", light: "#00000000" },
       });
-      qrImage = await sharp(qrPng).resize(44, 44).png().toBuffer();
+      // QR is already generated at width:44, no resize needed
+      qrImage = await sharp(qrPng).png().toBuffer();
     } catch {
       // QR generation failed -- skip
     }

@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { BeforeAfterSlider } from "@/components/vendor/before-after-slider";
 import { cn } from "@/lib/utils";
 import { Copy, Check, Download, Share2, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
@@ -28,120 +29,6 @@ type SharePageClientProps = {
   shareUrl: string;
   relatedMaterials: RelatedMaterial[];
 };
-
-// --------------------------------------------------------------------------
-// Before/After Slider
-// --------------------------------------------------------------------------
-function BeforeAfterSlider({
-  before,
-  after,
-}: {
-  before: string;
-  after: string;
-}) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [position, setPosition] = useState(50);
-  const [isDragging, setIsDragging] = useState(false);
-
-  const updatePosition = useCallback(
-    (clientX: number) => {
-      const el = containerRef.current;
-      if (!el) return;
-      const rect = el.getBoundingClientRect();
-      const x = clientX - rect.left;
-      const pct = Math.max(0, Math.min(100, (x / rect.width) * 100));
-      setPosition(pct);
-    },
-    [],
-  );
-
-  const handlePointerDown = useCallback(
-    (e: React.PointerEvent) => {
-      setIsDragging(true);
-      (e.target as HTMLElement).setPointerCapture(e.pointerId);
-      updatePosition(e.clientX);
-    },
-    [updatePosition],
-  );
-
-  const handlePointerMove = useCallback(
-    (e: React.PointerEvent) => {
-      if (!isDragging) return;
-      updatePosition(e.clientX);
-    },
-    [isDragging, updatePosition],
-  );
-
-  const handlePointerUp = useCallback(() => {
-    setIsDragging(false);
-  }, []);
-
-  return (
-    <div
-      ref={containerRef}
-      className="relative aspect-[4/3] w-full cursor-col-resize select-none overflow-hidden rounded-xl bg-zinc-100 dark:bg-zinc-800"
-      onPointerDown={handlePointerDown}
-      onPointerMove={handlePointerMove}
-      onPointerUp={handlePointerUp}
-    >
-      {/* After image (full) */}
-      <Image
-        src={after}
-        alt="After"
-        fill
-        className="object-cover"
-        sizes="(max-width: 768px) 100vw, 640px"
-        priority
-        unoptimized
-      />
-      {/* Before image (clipped) */}
-      <div
-        className="absolute inset-0 overflow-hidden"
-        style={{ width: `${position}%` }}
-      >
-        <Image
-          src={before}
-          alt="Before"
-          fill
-          className="object-cover"
-          sizes="(max-width: 768px) 100vw, 640px"
-          priority
-          unoptimized
-        />
-      </div>
-      {/* Divider */}
-      <div
-        className="absolute top-0 bottom-0 z-10 w-0.5 bg-white shadow-md"
-        style={{ left: `${position}%` }}
-      >
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-full bg-white shadow-lg">
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 16 16"
-            fill="none"
-            className="text-zinc-700"
-          >
-            <path
-              d="M4 8L1 5M4 8L1 11M4 8H12M12 8L15 5M12 8L15 11"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </div>
-      </div>
-      {/* Labels */}
-      <span className="absolute top-3 left-3 z-10 rounded-full bg-black/50 px-2.5 py-0.5 text-xs font-medium text-white backdrop-blur-sm">
-        Before
-      </span>
-      <span className="absolute top-3 right-3 z-10 rounded-full bg-black/50 px-2.5 py-0.5 text-xs font-medium text-white backdrop-blur-sm">
-        After
-      </span>
-    </div>
-  );
-}
 
 // --------------------------------------------------------------------------
 // Main Client Component
@@ -234,7 +121,7 @@ export default function SharePageClient({
       <main className="mx-auto max-w-3xl px-4 py-6 space-y-6">
         {/* Before/After Comparison */}
         <section>
-          <BeforeAfterSlider before={beforeImage} after={afterImage} />
+          <BeforeAfterSlider beforeSrc={beforeImage} afterSrc={afterImage} beforeLabel="Before" afterLabel="After" />
         </section>
 
         {/* Material Info */}

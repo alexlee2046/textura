@@ -2,7 +2,7 @@ import { cache } from "react";
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { MATERIAL_STATUS } from "@/lib/constants";
+import { MATERIAL_STATUS, SITE_URL } from "@/lib/constants";
 import SharePageClient from "./client";
 
 export const revalidate = false;
@@ -71,9 +71,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   const snapshot = gen.materialSnapshot as MaterialSnapshot;
   const orgName = gen.organization?.name;
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://textura.app";
-  const pageUrl = `${siteUrl}/s/${shareHash}`;
-  const ogImageUrl = `${siteUrl}/s/${shareHash}/opengraph-image`;
+  const pageUrl = `${SITE_URL}/s/${shareHash}`;
+  const ogImageUrl = `${SITE_URL}/s/${shareHash}/opengraph-image`;
 
   const title = snapshot.name
     ? `${snapshot.name}${snapshot.color ? ` ${snapshot.color}` : ""} — ${orgName || "Textura"}`
@@ -114,7 +113,6 @@ export default async function SharePage({ params }: Props) {
 
   const snapshot = gen.materialSnapshot as MaterialSnapshot;
   const org = gen.organization;
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://textura.app";
 
   // Fetch related materials from the same vendor
   const relatedRaw = gen.organizationId
@@ -133,7 +131,7 @@ export default async function SharePage({ params }: Props) {
       {/* Hidden image for WeChat crawler -- non-lazy, >=300x300, first img in DOM */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src={`${siteUrl}/s/${shareHash}/opengraph-image`}
+        src={`${SITE_URL}/s/${shareHash}/opengraph-image`}
         alt=""
         width={600}
         height={315}
@@ -149,7 +147,7 @@ export default async function SharePage({ params }: Props) {
         orgSlug={org?.slug ?? null}
         orgLogoUrl={org?.logoUrl ?? null}
         materialId={snapshot.id ?? null}
-        shareUrl={`${siteUrl}/s/${shareHash}`}
+        shareUrl={`${SITE_URL}/s/${shareHash}`}
         relatedMaterials={relatedMaterials}
       />
     </>

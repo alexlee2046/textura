@@ -50,7 +50,6 @@ export function VendorPageClient({
         </p>
 
         <RetextureTool
-          orgSlug={orgSlug}
           selectedMaterial={selectedMaterial}
         />
       </section>

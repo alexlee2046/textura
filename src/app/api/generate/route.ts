@@ -5,7 +5,8 @@ import { nanoid } from "nanoid";
 import { prisma } from "@/lib/prisma";
 import { getOptionalUser } from "@/lib/dal";
 import { saveBase64Image, saveUploadedFile } from "@/lib/storage";
-import { MATERIAL_STATUS } from "@/lib/constants";
+import { MATERIAL_STATUS, AI_MODEL } from "@/lib/constants";
+import { getImageBuffer } from "@/lib/image-fetch";
 
 // ---------------------------------------------------------------------------
 // Anonymous rate-limit: 1 generation per IP per 24 hours
@@ -51,16 +52,17 @@ async function addWatermark(imageBuffer: Buffer): Promise<Buffer> {
 export async function POST(request: NextRequest) {
   try {
     // ---- Auth (optional) ------------------------------------------------
+    const headersList = await headers();
+    const clientIp =
+      headersList.get("x-forwarded-for")?.split(",")[0].trim() ||
+      headersList.get("x-real-ip") ||
+      "unknown";
+
     const user = await getOptionalUser();
     const isAnonymous = !user;
 
     if (isAnonymous) {
-      const headersList = await headers();
-      const ip =
-        headersList.get("x-forwarded-for")?.split(",")[0].trim() ||
-        headersList.get("x-real-ip") ||
-        "unknown";
-      if (!canAnonymousGenerate(ip)) {
+      if (!canAnonymousGenerate(clientIp)) {
         return NextResponse.json(
           { error: "Anonymous users are limited to 1 generation per 24 hours. Please sign in for unlimited access." },
           { status: 429 },
@@ -128,16 +130,17 @@ export async function POST(request: NextRequest) {
     const furnitureBase64 = Buffer.from(await imageFile.arrayBuffer()).toString("base64");
     const furnitureMime = imageFile.type || "image/jpeg";
 
-    // Fetch the swatch image from its URL
-    const swatchResp = await fetch(swatchUrl);
-    if (!swatchResp.ok) {
+    // Fetch the swatch image from its URL (with timeout)
+    let swatchBuffer: Buffer;
+    try {
+      swatchBuffer = await getImageBuffer(swatchUrl);
+    } catch {
       return NextResponse.json(
         { error: "Failed to fetch material swatch image" },
         { status: 502 },
       );
     }
-    const swatchBuffer = Buffer.from(await swatchResp.arrayBuffer());
-    const swatchMime = swatchResp.headers.get("content-type") || "image/webp";
+    const swatchMime = swatchUrl.endsWith(".png") ? "image/png" : "image/webp";
     const swatchBase64 = swatchBuffer.toString("base64");
 
     // ---- Build OpenRouter request --------------------------------------
@@ -163,8 +166,6 @@ export async function POST(request: NextRequest) {
       { type: "text" as const, text: prompt },
     ];
 
-    const model = "google/gemini-2.5-flash-image";
-
     const openRouterResp = await fetch(
       "https://openrouter.ai/api/v1/chat/completions",
       {
@@ -174,7 +175,7 @@ export async function POST(request: NextRequest) {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model,
+          model: AI_MODEL,
           messages: [{ role: "user", content: contentParts }],
           modalities: ["image", "text"],
         }),
@@ -242,7 +243,7 @@ export async function POST(request: NextRequest) {
         materialSnapshot,
         type: "retexture",
         creditCost: 0,
-        modelUsed: model,
+        modelUsed: AI_MODEL,
         inputImageUrl,
         resultImageUrl,
         shareHash,
@@ -251,12 +252,7 @@ export async function POST(request: NextRequest) {
 
     // Record anonymous usage AFTER successful generation
     if (isAnonymous) {
-      const headersList = await headers();
-      const ip =
-        headersList.get("x-forwarded-for")?.split(",")[0].trim() ||
-        headersList.get("x-real-ip") ||
-        "unknown";
-      recordAnonymousGeneration(ip);
+      recordAnonymousGeneration(clientIp);
     }
 
     return NextResponse.json({

@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { prisma } from "@/lib/prisma";
 import { getOrgBySlug } from "@/lib/dal";
 import { MATERIAL_STATUS, MATERIAL_CATEGORIES } from "@/lib/constants";
@@ -19,7 +20,7 @@ function getCategoryLabel(key: string): string {
   return found ? found.label : key;
 }
 
-async function getMaterialWithImages(materialId: string) {
+const getMaterialWithImages = cache(async (materialId: string) => {
   return prisma.material.findUnique({
     where: { id: materialId },
     select: {
@@ -43,7 +44,7 @@ async function getMaterialWithImages(materialId: string) {
       },
     },
   });
-}
+});
 
 // ---------------------------------------------------------------------------
 // Metadata
