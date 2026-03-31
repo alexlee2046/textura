@@ -152,7 +152,7 @@ async function cmdAddMember(args: string[]) {
     console.log(`  id:     ${member.id}`);
 
     // Sync JWT claims via app_metadata
-    const { error: updateErr } = await supabase.auth.admin.updateUser(user.id, {
+    const { error: updateErr } = await supabase.auth.admin.updateUserById(user.id, {
       app_metadata: {
         organization_id: org.id,
         organization_slug: org.slug,
@@ -340,7 +340,7 @@ async function cmdSetAdmin(args: string[]) {
 
     // Sync JWT claims
     const existingMeta = user.app_metadata || {};
-    const { error: updateErr } = await supabase.auth.admin.updateUser(user.id, {
+    const { error: updateErr } = await supabase.auth.admin.updateUserById(user.id, {
       app_metadata: { ...existingMeta, is_platform_admin: true },
     });
     if (updateErr) {
