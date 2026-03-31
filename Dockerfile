@@ -5,16 +5,20 @@ RUN apk add --no-cache libc6-compat
 WORKDIR /app
 COPY package.json package-lock.json ./
 COPY prisma ./prisma/
-RUN npm config set registry https://registry.npmmirror.com && npm ci
+RUN --mount=type=cache,target=/root/.npm \
+    --mount=type=cache,target=/app/node_modules/.cache \
+    npm config set registry https://registry.npmmirror.com && npm ci
 
 FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-# Generate Prisma client
-RUN npx prisma generate
-# Build
-RUN npm run build
+# Generate Prisma client (cache engines download)
+RUN --mount=type=cache,target=/root/.cache/prisma \
+    npx prisma generate
+# Build (cache Next.js build artifacts)
+RUN --mount=type=cache,target=/app/.next/cache \
+    npm run build
 
 FROM base AS runner
 WORKDIR /app
