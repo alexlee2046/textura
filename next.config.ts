@@ -7,6 +7,7 @@ const nextConfig: NextConfig = {
   output: "standalone",
   poweredByHeader: false,
   images: {
+    unoptimized: true,
     remotePatterns: [
       {
         protocol: "https",
@@ -17,7 +18,6 @@ const nextConfig: NextConfig = {
         hostname: "www.xinvise.com",
       },
     ],
-    formats: ["image/avif", "image/webp"],
   },
 };
 
