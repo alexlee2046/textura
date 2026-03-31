@@ -177,7 +177,7 @@ export default function MaterialsPage() {
                   colSpan={7}
                   className="py-12 text-center text-muted-foreground"
                 >
-                  暂无材质，点击右上角"添加材质"开始
+                  暂无材质，点击右上角「添加材质」开始
                 </TableCell>
               </TableRow>
             ) : (

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { PrismaClientKnownRequestError } from "@prisma/client/runtime/client";
 import { prisma } from "@/lib/prisma";
 import { getOrgContext } from "@/lib/dal";
 import { saveUploadedFile } from "@/lib/storage";
@@ -91,6 +92,15 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   } catch (error) {
     if (error instanceof Error && error.message === "MATERIAL_NOT_FOUND") {
       return NextResponse.json({ error: "Material not found" }, { status: 404 });
+    }
+    if (
+      error instanceof PrismaClientKnownRequestError &&
+      error.code === "P2002"
+    ) {
+      return NextResponse.json(
+        { error: "该系列编号和色号组合已存在" },
+        { status: 400 },
+      );
     }
     throw error;
   }
