@@ -5,7 +5,7 @@ RUN apk add --no-cache libc6-compat
 WORKDIR /app
 COPY package.json package-lock.json ./
 COPY prisma ./prisma/
-RUN npm ci
+RUN npm config set registry https://registry.npmmirror.com && npm ci
 
 FROM base AS builder
 WORKDIR /app
