@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useOrgContext } from "@/components/dashboard/dashboard-context";
+import { MEMBER_ROLE } from "@/lib/constants";
 
 type OrgSettings = {
   id: string;
@@ -120,7 +121,7 @@ export default function SettingsPage() {
     }
   }
 
-  const isOwner = org.role === "owner";
+  const isOwner = org.role === MEMBER_ROLE.OWNER;
 
   if (loading) {
     return (

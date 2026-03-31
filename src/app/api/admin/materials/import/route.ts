@@ -96,29 +96,24 @@ export async function POST(request: NextRequest) {
     }
 
     // Bulk create in transaction
-    const created = await prisma.$transaction(async (tx) => {
-      const materials = [];
-      for (const row of rows) {
-        const mat = await tx.material.create({
-          data: {
-            organizationId: orgId,
-            name: row.name,
-            category: row.category,
-            seriesCode: row.seriesCode ?? null,
-            color: row.color ?? null,
-            colorCode: row.colorCode ?? null,
-            promptModifier: row.promptModifier ?? "",
-            status: MATERIAL_STATUS.ACTIVE,
-            createdBy: admin.userId,
-          },
-        });
-        materials.push(mat);
-      }
-      return materials;
+    const result = await prisma.$transaction(async (tx) => {
+      return tx.material.createMany({
+        data: rows.map((row) => ({
+          organizationId: orgId,
+          name: row.name,
+          category: row.category,
+          seriesCode: row.seriesCode ?? null,
+          color: row.color ?? null,
+          colorCode: row.colorCode ?? null,
+          promptModifier: row.promptModifier ?? "",
+          status: MATERIAL_STATUS.ACTIVE,
+          createdBy: admin.userId,
+        })),
+      });
     });
 
     return NextResponse.json(
-      { imported: created.length, total: rows.length },
+      { imported: result.count, total: rows.length },
       { status: 201 },
     );
   } catch (error) {
