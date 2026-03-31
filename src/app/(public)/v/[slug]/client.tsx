@@ -88,7 +88,7 @@ export function VendorPageClient({
         </section>
       )}
 
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-white/90 backdrop-blur-md dark:bg-zinc-950/90">
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-white/90 backdrop-blur-md dark:bg-zinc-950/90" style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4">
           <span className="text-sm text-muted-foreground">
             {selectedMaterial ? "已选择 1 种材质" : "请选择材质"}
@@ -103,7 +103,8 @@ export function VendorPageClient({
         </div>
       </div>
 
-      <div className="h-16" />
+      {/* Spacer matching bottom bar height + safe area */}
+      <div className="h-16" style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }} />
 
       {selectedMaterial && (
         <InquiryModal

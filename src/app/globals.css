@@ -123,8 +123,16 @@
   }
   body {
     @apply bg-background text-foreground;
+    /* Smooth scrolling in WeChat / iOS WebView */
+    -webkit-overflow-scrolling: touch;
   }
   html {
     @apply font-sans;
+  }
+  /* Prevent iOS tap highlight covering interactive elements */
+  button,
+  a,
+  [role="button"] {
+    -webkit-tap-highlight-color: transparent;
   }
 }

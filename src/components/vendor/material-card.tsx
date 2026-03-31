@@ -46,10 +46,10 @@ export function MaterialCard({
           </div>
         )}
       </div>
-      <div className="px-2 py-1.5 text-left">
-        <p className="truncate text-sm font-medium">{name}</p>
+      <div className="px-2 py-2 text-left">
+        <p className="truncate text-sm font-medium leading-tight">{name}</p>
         {color && (
-          <p className="truncate text-xs text-muted-foreground">{color}</p>
+          <p className="mt-0.5 truncate text-xs text-muted-foreground">{color}</p>
         )}
       </div>
     </button>

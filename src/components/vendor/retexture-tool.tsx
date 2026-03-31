@@ -7,6 +7,7 @@ import { Upload, Sparkles, Download, Share2, X, ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BeforeAfterSlider } from "./before-after-slider";
 import { cn } from "@/lib/utils";
+import { compressImage } from "@/lib/compress-image";
 import { createClient } from "@/lib/supabase/client";
 
 // ---------------------------------------------------------------------------
@@ -30,64 +31,6 @@ type GenerationResult = {
 };
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
-const MAX_DIMENSION = 2048;
-
-// ---------------------------------------------------------------------------
-// Image compression helper (runs in browser via canvas)
-// ---------------------------------------------------------------------------
-function compressImage(file: File): Promise<File> {
-  return new Promise((resolve, reject) => {
-    const img = new window.Image();
-    const url = URL.createObjectURL(file);
-
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-
-      let { width, height } = img;
-      if (width <= MAX_DIMENSION && height <= MAX_DIMENSION) {
-        resolve(file);
-        return;
-      }
-
-      const ratio = Math.min(MAX_DIMENSION / width, MAX_DIMENSION / height);
-      width = Math.round(width * ratio);
-      height = Math.round(height * ratio);
-
-      const canvas = document.createElement("canvas");
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) {
-        reject(new Error("Canvas context unavailable"));
-        return;
-      }
-      ctx.drawImage(img, 0, 0, width, height);
-
-      canvas.toBlob(
-        (blob) => {
-          if (!blob) {
-            reject(new Error("Compression failed"));
-            return;
-          }
-          const compressed = new File([blob], file.name, {
-            type: "image/jpeg",
-            lastModified: Date.now(),
-          });
-          resolve(compressed);
-        },
-        "image/jpeg",
-        0.85,
-      );
-    };
-
-    img.onerror = () => {
-      URL.revokeObjectURL(url);
-      reject(new Error("Failed to load image"));
-    };
-
-    img.src = url;
-  });
-}
 
 // ---------------------------------------------------------------------------
 // Component

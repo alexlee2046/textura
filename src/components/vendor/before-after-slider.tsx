@@ -56,6 +56,7 @@ export function BeforeAfterSlider({
     <div
       ref={containerRef}
       className="relative aspect-[4/3] w-full cursor-col-resize select-none overflow-hidden rounded-lg"
+      style={{ touchAction: "none" }}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}

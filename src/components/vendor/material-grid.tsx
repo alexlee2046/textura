@@ -67,7 +67,7 @@ export function MaterialGrid({
             type="button"
             onClick={() => setCategory(cat.key)}
             className={cn(
-              "rounded-full px-3 py-1 text-sm transition-colors",
+              "rounded-full px-3.5 py-2 text-sm transition-colors min-h-[44px]",
               category === cat.key
                 ? "bg-primary text-primary-foreground"
                 : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700",
