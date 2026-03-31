@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import { MaterialGrid } from "@/components/vendor/material-grid";
 import { RetextureTool } from "@/components/vendor/retexture-tool";
+import { InquiryModal } from "@/components/vendor/inquiry-modal";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
 
@@ -30,6 +31,7 @@ export function VendorPageClient({
 }: VendorPageClientProps) {
   const [selectedMaterial, setSelectedMaterial] =
     useState<SelectedMaterial | null>(null);
+  const [inquiryOpen, setInquiryOpen] = useState(false);
 
   const handleMaterialSelect = useCallback(
     (material: { id: string; name: string; color: string | null; imageUrl: string | null }) => {
@@ -91,13 +93,27 @@ export function VendorPageClient({
           <span className="text-sm text-muted-foreground">
             {selectedMaterial ? "已选择 1 种材质" : "请选择材质"}
           </span>
-          <Button size="lg" disabled={!selectedMaterial}>
+          <Button
+            size="lg"
+            disabled={!selectedMaterial}
+            onClick={() => setInquiryOpen(true)}
+          >
             申请样品
           </Button>
         </div>
       </div>
 
       <div className="h-16" />
+
+      {selectedMaterial && (
+        <InquiryModal
+          open={inquiryOpen}
+          onOpenChange={setInquiryOpen}
+          materialId={selectedMaterial.id}
+          materialName={selectedMaterial.name}
+          orgSlug={orgSlug}
+        />
+      )}
     </div>
   );
 }
