@@ -12,6 +12,10 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "*.cos.*.myqcloud.com",
       },
+      {
+        protocol: "https",
+        hostname: "www.xinvise.com",
+      },
     ],
     formats: ["image/avif", "image/webp"],
   },
