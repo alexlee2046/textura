@@ -8,7 +8,6 @@ COPY prisma ./prisma/
 # Use China mirrors: npmmirror for npm packages, npmmirror for Prisma engines
 ENV PRISMA_ENGINES_MIRROR=https://registry.npmmirror.com/-/binary/prisma
 RUN --mount=type=cache,target=/root/.npm \
-    --mount=type=cache,target=/app/node_modules/.cache \
     npm config set registry https://registry.npmmirror.com && npm ci
 
 FROM base AS builder
