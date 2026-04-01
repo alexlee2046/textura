@@ -33,5 +33,10 @@
     "materials": "Materials",
     "inquiries": "Inquiries",
     "settings": "Settings"
-  }
+  },
+  "SceneSetup": {},
+  "ProductUploader": {},
+  "ImageUploader": {},
+  "ImageCropper": {},
+  "MagicButton": {}
 }

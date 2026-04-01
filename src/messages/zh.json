@@ -33,5 +33,10 @@
     "materials": "材质管理",
     "inquiries": "询样管理",
     "settings": "设置"
-  }
+  },
+  "SceneSetup": {},
+  "ProductUploader": {},
+  "ImageUploader": {},
+  "ImageCropper": {},
+  "MagicButton": {}
 }
