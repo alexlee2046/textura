@@ -1,7 +1,5 @@
 "use client";
 
-// TODO: Install react-easy-crop dependency before using this component
-// npm install react-easy-crop
 
 import React, { useState, useCallback, useEffect } from "react";
 import Cropper, { Area } from "react-easy-crop";

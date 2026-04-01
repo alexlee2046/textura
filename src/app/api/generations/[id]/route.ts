@@ -31,15 +31,13 @@ export async function DELETE(
 
   const { id } = await params;
 
-  const generation = await prisma.generation.findFirst({
+  const { count } = await prisma.generation.deleteMany({
     where: { id, organizationId: auth.orgId },
   });
 
-  if (!generation) {
+  if (count === 0) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
-
-  await prisma.generation.delete({ where: { id } });
 
   return NextResponse.json({ success: true });
 }

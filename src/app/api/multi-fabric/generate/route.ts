@@ -11,7 +11,7 @@ import {
 } from "@/lib/multi-fabric-schemas";
 import { prisma } from "@/lib/prisma";
 import { structuredLog } from "@/lib/gemini-utils";
-import { callOpenRouter } from "@/lib/openrouter";
+import { callOpenRouter, extractImages } from "@/lib/openrouter";
 import { nanoid } from "nanoid";
 import {
   AI_MODELS,
@@ -195,9 +195,8 @@ export async function POST(req: Request) {
     );
 
     // 7. Build content parts: Image 1 = furniture, Image 2+ = swatches (in assignment order)
-    const base64Image = Buffer.from(await imageFile.arrayBuffer()).toString(
-      "base64",
-    );
+    const rawImageBuffer = Buffer.from(await imageFile.arrayBuffer());
+    const base64Image = rawImageBuffer.toString("base64");
     const mimeType = imageFile.type || "image/jpeg";
     const assignedMaterialIds = [
       ...new Set(assignments.map((a) => a.fabricId)),
@@ -264,13 +263,7 @@ export async function POST(req: Request) {
       throw aiErr;
     }
 
-    const images = (
-      data as {
-        choices?: Array<{
-          message?: { images?: Array<{ image_url: { url: string } }> };
-        }>;
-      }
-    ).choices?.[0]?.message?.images;
+    const images = extractImages(data);
 
     if (!images || images.length === 0) {
       await refundOrgCredits(
@@ -283,7 +276,7 @@ export async function POST(req: Request) {
     }
 
     // 11. Save images (parallel)
-    const inputBuffer = Buffer.from(await imageFile.arrayBuffer());
+    const inputBuffer = rawImageBuffer;
     const [inputImageUrl, resultImageUrl] = await Promise.all([
       saveImageAsWebp(inputBuffer),
       saveBase64Image(images[0].image_url.url),

@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireOrgWithCredits } from "@/lib/api-guard";
 import { deductOrgCredits, refundOrgCredits } from "@/lib/credits";
 import { saveBase64Image, saveImageAsWebp } from "@/lib/storage";
-import { callOpenRouter } from "@/lib/openrouter";
+import { callOpenRouter, extractImages, type OpenRouterImageResult } from "@/lib/openrouter";
 import { retryWithDelay } from "@/lib/gemini-utils";
 import {
   AI_MODELS,
@@ -126,7 +126,7 @@ Requirements:
       );
     }
 
-    let images: Array<{ image_url: { url: string } }>;
+    let images: OpenRouterImageResult[];
     try {
       images = await retryWithDelay(
         async () => {
@@ -137,7 +137,7 @@ Requirements:
           });
 
           const data = await resp.json();
-          const imgs = data.choices?.[0]?.message?.images;
+          const imgs = extractImages(data);
           if (!imgs || imgs.length === 0) {
             throw new Error("No image returned from model");
           }

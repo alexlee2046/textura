@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { deductOrgCredits, refundOrgCredits } from "@/lib/credits";
 import { requireOrgWithCredits } from "@/lib/api-guard";
 import { saveBase64Image } from "@/lib/storage";
-import { callOpenRouter } from "@/lib/openrouter";
+import { callOpenRouter, extractImages } from "@/lib/openrouter";
 import { nanoid } from "nanoid";
 import {
   AI_MODELS,
@@ -46,16 +46,16 @@ export async function POST(req: Request) {
       },
     });
 
-    for (const pf of productFiles.slice(0, 6)) {
-      if (pf.size > MAX_SIZE) continue;
-      const b64 = Buffer.from(await pf.arrayBuffer()).toString("base64");
-      contentParts.push({
-        type: "image_url",
-        image_url: {
-          url: `data:${pf.type || "image/jpeg"};base64,${b64}`,
-        },
-      });
-    }
+    const productParts = await Promise.all(
+      productFiles.slice(0, 6).filter(pf => pf.size <= MAX_SIZE).map(async (pf) => {
+        const b64 = Buffer.from(await pf.arrayBuffer()).toString("base64");
+        return {
+          type: "image_url" as const,
+          image_url: { url: `data:${pf.type || "image/jpeg"};base64,${b64}` },
+        };
+      })
+    );
+    contentParts.push(...productParts);
 
     contentParts.push({
       type: "text",
@@ -104,13 +104,7 @@ Your task:
       throw new Error("Scene enhancement is temporarily unavailable");
     }
 
-    const images = (
-      data as {
-        choices?: {
-          message?: { images?: { image_url: { url: string } }[] };
-        }[];
-      }
-    )?.choices?.[0]?.message?.images;
+    const images = extractImages(data);
 
     if (!images?.length) {
       await refundOrgCredits(

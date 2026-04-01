@@ -273,7 +273,8 @@ export async function POST(req: Request) {
     }
     const fmt = FORMATS[format as ExportFormat];
 
-    const { width, height } = await sharp(imageBuffer).metadata();
+    const img = sharp(imageBuffer);
+    const { width, height } = await img.metadata();
     if (!width || !height) {
       return NextResponse.json(
         { error: "Could not read image dimensions" },
@@ -289,7 +290,7 @@ export async function POST(req: Request) {
 
     try {
       // Write PGM (P5 binary grayscale) for mkbitmap input
-      const grayImg = sharp(imageBuffer).grayscale();
+      const grayImg = img.clone().grayscale();
       const { data: rawPixels, info } = await grayImg.raw().toBuffer({ resolveWithObject: true });
       const pgmHeader = `P5\n${info.width} ${info.height}\n255\n`;
       await writeFile(pgmPath, Buffer.concat([Buffer.from(pgmHeader, "ascii"), rawPixels]));

@@ -92,3 +92,18 @@ export async function callOpenRouterImageGen(
 
   return resp;
 }
+
+export type OpenRouterImageResult = { image_url: { url: string } };
+
+/** Extract image results from an OpenRouter chat response. */
+export function extractImages(
+  data: unknown,
+): OpenRouterImageResult[] | undefined {
+  return (
+    data as {
+      choices?: {
+        message?: { images?: OpenRouterImageResult[] };
+      }[];
+    }
+  )?.choices?.[0]?.message?.images;
+}

@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { deductOrgCredits, refundOrgCredits } from "@/lib/credits";
 import { requireOrgWithCredits } from "@/lib/api-guard";
 import { saveBase64Image } from "@/lib/storage";
-import { callOpenRouter } from "@/lib/openrouter";
+import { callOpenRouter, extractImages } from "@/lib/openrouter";
 import { nanoid } from "nanoid";
 import { STYLE_MAP, ROOM_MAP, LIGHT_MAP } from "@/lib/scenePromptMaps";
 import {
@@ -58,19 +58,16 @@ export async function POST(req: Request) {
     }
 
     const MAX_SIZE = 5 * 1024 * 1024;
-    const contentParts: object[] = [];
 
-    for (let i = 0; i < productFiles.length; i++) {
-      const f = productFiles[i];
-      if (f.size > MAX_SIZE) continue;
-      const b64 = Buffer.from(await f.arrayBuffer()).toString("base64");
-      contentParts.push({
-        type: "image_url",
-        image_url: {
-          url: `data:${f.type || "image/jpeg"};base64,${b64}`,
-        },
-      });
-    }
+    const contentParts: object[] = await Promise.all(
+      productFiles.filter(f => f.size <= MAX_SIZE).map(async (f) => {
+        const b64 = Buffer.from(await f.arrayBuffer()).toString("base64");
+        return {
+          type: "image_url" as const,
+          image_url: { url: `data:${f.type || "image/jpeg"};base64,${b64}` },
+        };
+      })
+    );
 
     const productList = productMeta
       .map(
@@ -121,13 +118,7 @@ Maintain correct proportions from the given dimensions. Wide-angle view.`;
       throw new Error("Scene generation is temporarily unavailable");
     }
 
-    const images = (
-      data as {
-        choices?: {
-          message?: { images?: { image_url: { url: string } }[] };
-        }[];
-      }
-    )?.choices?.[0]?.message?.images;
+    const images = extractImages(data);
 
     if (!images?.length) {
       await refundOrgCredits(

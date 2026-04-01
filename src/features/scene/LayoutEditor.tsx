@@ -1,6 +1,4 @@
 // src/features/scene/LayoutEditor.tsx
-// TODO: Install react-konva and konva dependencies before using this component
-// npm install react-konva konva
 "use client";
 
 import React, { useEffect, useRef, useState, useMemo, useCallback } from "react";

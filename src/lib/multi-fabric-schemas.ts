@@ -40,4 +40,3 @@ export const MultiFabricMetadataSchema = z.object({
 
 export type MultiFabricMetadata = z.infer<typeof MultiFabricMetadataSchema>;
 
-export { parseGeminiJSON } from "./gemini-utils";
