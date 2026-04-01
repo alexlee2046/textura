@@ -17,6 +17,8 @@ model Organization {
   notifyEmail  String? @map("notify_email")
   wechatQr    String?  @map("wechat_qr")
   settings    Json     @default("{}")
+  credits     Int      @default(20)
+  plan        String   @default("free")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
 
@@ -24,6 +26,8 @@ model Organization {
   materials   Material[]
   generations Generation[]
   inquiries   Inquiry[]
+  model3DGenerations Model3DGeneration[]
+  transactions       Transaction[]
 
   @@map("organizations")
 }
@@ -105,11 +109,14 @@ model Generation {
 
   type             String   @default("retexture")
   creditCost       Int      @default(0) @map("credit_cost")
+  mode             String?
   modelUsed        String?  @map("model_used")
 
   inputImageUrl    String   @map("input_image_url")
   resultImageUrl   String   @map("result_image_url")
   shareHash        String?  @unique @map("share_hash")
+  groupId          String?  @map("group_id")
+  sceneParams      Json?    @map("scene_params")
 
   metadata         Json?
   createdAt        DateTime @default(now()) @map("created_at")
@@ -121,6 +128,7 @@ model Generation {
   @@index([userId, createdAt(sort: Desc)], map: "idx_gen_user")
   @@index([organizationId, createdAt(sort: Desc)], map: "idx_gen_org")
   @@index([shareHash], map: "idx_gen_share")
+  @@index([groupId], map: "idx_gen_group")
   @@map("generations")
 }
 
@@ -145,6 +153,56 @@ model Inquiry {
 
   @@index([organizationId, createdAt(sort: Desc)], map: "idx_inquiries_org")
   @@map("inquiries")
+}
+
+model Transaction {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  userId         String?  @map("user_id") @db.Uuid
+  type           String
+  credits        Int
+  balanceAfter   Int      @map("balance_after")
+  description    String?
+  paymentId      String?  @map("payment_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId, createdAt(sort: Desc)], map: "idx_tx_org")
+  @@map("transactions")
+}
+
+model Model3DGeneration {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId    String?   @map("organization_id") @db.Uuid
+  userId            String    @map("user_id") @db.Uuid
+  mode              String
+  furnitureType     String    @map("furniture_type")
+  dimensions        Json
+  creditCost        Int       @map("credit_cost")
+  inputImageUrl     String    @map("input_image_url")
+  enhancedImageUrl  String?   @map("enhanced_image_url")
+  enhancedImage2Url String?   @map("enhanced_image_2_url")
+  enhanceCount      Int       @default(0) @map("enhance_count")
+  feedback          String?
+  tripoTaskId       String?   @unique @map("tripo_task_id")
+  tripoResultUrl    String?   @map("tripo_result_url")
+  tripoExpiresAt    DateTime? @map("tripo_expires_at")
+  modelUrl          String?   @map("model_url")
+  status            String    @default("enhancing")
+  idempotencyKey    String?   @unique @map("idempotency_key")
+  shareHash         String?   @unique @map("share_hash")
+  submittedAt       DateTime? @map("submitted_at")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  organization Organization? @relation(fields: [organizationId], references: [id])
+
+  @@index([userId, createdAt(sort: Desc)], map: "idx_m3d_user")
+  @@index([organizationId], map: "idx_m3d_org")
+  @@index([status], map: "idx_m3d_status")
+  @@index([shareHash], map: "idx_m3d_share")
+  @@map("model_3d_generations")
 }
 
 model AuditLog {
