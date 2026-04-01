@@ -1,7 +1,7 @@
 export const OPENROUTER_CHAT_URL =
   "https://openrouter.ai/api/v1/chat/completions";
 
-export function openRouterHeaders(): HeadersInit {
+function openRouterHeaders(): HeadersInit {
   if (!process.env.OPENROUTER_API_KEY) {
     throw new Error("OPENROUTER_API_KEY is not set");
   }

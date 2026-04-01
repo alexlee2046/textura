@@ -56,21 +56,33 @@ export async function requireOrgAuth(): Promise<
   };
 }
 
-/** Require org auth + minimum credits. */
+/** Require org auth + minimum credits. Single query fetches org membership + credits. */
 export async function requireOrgWithCredits(
   minCredits: number,
 ): Promise<ApiCreditResult | NextResponse> {
-  const orgAuth = await requireOrgAuth();
-  if (orgAuth instanceof NextResponse) return orgAuth;
+  const auth = await requireAuth();
+  if (auth instanceof NextResponse) return auth;
 
-  const org = await prisma.organization.findUnique({
-    where: { id: orgAuth.orgId },
-    select: { credits: true },
+  const member = await prisma.organizationMember.findFirst({
+    where: { userId: auth.userId, status: MEMBER_STATUS.ACTIVE },
+    include: {
+      organization: { select: { id: true, slug: true, credits: true } },
+    },
+    orderBy: { joinedAt: "asc" },
   });
 
-  if (!org || org.credits < minCredits) return insufficientCredits();
+  if (!member) return forbidden();
 
-  return { ...orgAuth, orgCredits: org.credits };
+  const { organization } = member;
+  if (organization.credits < minCredits) return insufficientCredits();
+
+  return {
+    userId: auth.userId,
+    orgId: organization.id,
+    orgSlug: organization.slug,
+    role: member.role as MemberRole,
+    orgCredits: organization.credits,
+  };
 }
 
 /** Require platform admin. */

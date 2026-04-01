@@ -25,10 +25,29 @@ async function ensureDir(dir: string) {
   await mkdir(dir, { recursive: true });
 }
 
-/**
- * Save a base64 data URL image. Converts to WebP, quality 85.
- * Storage priority: Supabase -> COS -> Local filesystem.
- */
+/** Upload buffer to the first available backend: Supabase → COS → Local. */
+async function uploadBuffer(
+  subdir: string,
+  filename: string,
+  buffer: Buffer,
+  contentType: string,
+): Promise<string> {
+  const key = `${subdir}/${filename}`;
+
+  if (isSupabaseStorageConfigured) {
+    return uploadToSupabase(key, buffer, contentType);
+  }
+  if (isCosConfigured) {
+    return uploadToCos(key, buffer, contentType);
+  }
+
+  const dir = join(GENERATED_DIR, subdir);
+  await ensureDir(dir);
+  await writeFile(join(dir, filename), buffer);
+  return `/generated/${key}`;
+}
+
+/** Save a base64 data URL image as WebP. */
 export async function saveBase64Image(base64Url: string): Promise<string> {
   const commaIdx = base64Url.indexOf(",");
   const rawBuffer = Buffer.from(
@@ -36,26 +55,10 @@ export async function saveBase64Image(base64Url: string): Promise<string> {
     "base64",
   );
   const webpBuffer = await sharp(rawBuffer).webp({ quality: 85 }).toBuffer();
-  const filename = `${nanoid(12)}.webp`;
-
-  if (isSupabaseStorageConfigured) {
-    return uploadToSupabase(`results/${filename}`, webpBuffer, "image/webp");
-  }
-  if (isCosConfigured) {
-    return uploadToCos(`results/${filename}`, webpBuffer, "image/webp");
-  }
-
-  const dir = join(GENERATED_DIR, "results");
-  await ensureDir(dir);
-  await writeFile(join(dir, filename), webpBuffer);
-  return `/generated/results/${filename}`;
+  return uploadBuffer("results", `${nanoid(12)}.webp`, webpBuffer, "image/webp");
 }
 
-/**
- * Save an uploaded File preserving original format.
- * Validates extension and file size. Used for logos, QR codes, material swatches.
- * Storage priority: Supabase -> COS -> Local filesystem.
- */
+/** Save an uploaded File preserving original format. Used for logos, QR codes, material swatches. */
 export async function saveUploadedFile(file: File): Promise<string> {
   if (file.size > MAX_UPLOAD_SIZE) {
     throw new Error("File too large (max 10 MB)");
@@ -67,42 +70,14 @@ export async function saveUploadedFile(file: File): Promise<string> {
   }
 
   const buffer = Buffer.from(await file.arrayBuffer());
-  const filename = `${nanoid(12)}.${ext}`;
-  const contentType = file.type || "application/octet-stream";
-
-  if (isSupabaseStorageConfigured) {
-    return uploadToSupabase(`uploads/${filename}`, buffer, contentType);
-  }
-  if (isCosConfigured) {
-    return uploadToCos(`uploads/${filename}`, buffer, contentType);
-  }
-
-  const dir = join(GENERATED_DIR, "uploads");
-  await ensureDir(dir);
-  await writeFile(join(dir, filename), buffer);
-  return `/generated/uploads/${filename}`;
+  return uploadBuffer("uploads", `${nanoid(12)}.${ext}`, buffer, file.type || "application/octet-stream");
 }
 
-/**
- * Save an image buffer as WebP (quality 85). Used for AI generation inputs/outputs.
- * Storage priority: Supabase -> COS -> Local filesystem.
- */
+/** Save an image buffer as WebP (quality 85). Used for AI generation inputs/outputs. */
 export async function saveImageAsWebp(
   buffer: Buffer,
   subdir = "uploads",
 ): Promise<string> {
   const webpBuffer = await sharp(buffer).webp({ quality: 85 }).toBuffer();
-  const filename = `${nanoid(12)}.webp`;
-
-  if (isSupabaseStorageConfigured) {
-    return uploadToSupabase(`${subdir}/${filename}`, webpBuffer, "image/webp");
-  }
-  if (isCosConfigured) {
-    return uploadToCos(`${subdir}/${filename}`, webpBuffer, "image/webp");
-  }
-
-  const dir = join(GENERATED_DIR, subdir);
-  await ensureDir(dir);
-  await writeFile(join(dir, filename), webpBuffer);
-  return `/generated/${subdir}/${filename}`;
+  return uploadBuffer(subdir, `${nanoid(12)}.webp`, webpBuffer, "image/webp");
 }

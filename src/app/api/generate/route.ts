@@ -5,37 +5,21 @@ import { nanoid } from "nanoid";
 import { prisma } from "@/lib/prisma";
 import { getOptionalUser } from "@/lib/dal";
 import { requireOrgWithCredits, type ApiCreditResult } from "@/lib/api-guard";
-import { saveBase64Image, saveImageAsWebp } from "@/lib/storage";
+import { saveImageAsWebp } from "@/lib/storage";
 import { callOpenRouter } from "@/lib/openrouter";
 import { deductOrgCredits, refundOrgCredits } from "@/lib/credits";
 import { optimizeForOpenRouter } from "@/lib/image-utils";
+import { checkRateLimit } from "@/lib/rate-limit";
 import { getImageBuffer } from "@/lib/image-fetch";
 import {
   MATERIAL_STATUS,
   AI_MODELS,
   CREDIT_COST,
   GENERATION_TYPE,
+  GENERATION_MODE,
 } from "@/lib/constants";
 
-// Anonymous rate-limit: 1 generation per IP per 24 hours
-const anonTracker = new Map<string, number>();
 const ANON_WINDOW_MS = 24 * 60 * 60 * 1000;
-
-function canAnonymousGenerate(ip: string): boolean {
-  const lastTime = anonTracker.get(ip);
-  if (!lastTime) return true;
-  return Date.now() - lastTime > ANON_WINDOW_MS;
-}
-
-function recordAnonymousGeneration(ip: string) {
-  anonTracker.set(ip, Date.now());
-  if (anonTracker.size > 10_000) {
-    const cutoff = Date.now() - ANON_WINDOW_MS;
-    for (const [key, ts] of anonTracker) {
-      if (ts < cutoff) anonTracker.delete(key);
-    }
-  }
-}
 
 async function addWatermark(imageBuffer: Buffer): Promise<Buffer> {
   const svg = Buffer.from(`
@@ -57,17 +41,18 @@ export async function POST(request: NextRequest) {
       headersList.get("x-real-ip") ||
       "unknown";
 
-    const user = await getOptionalUser();
+    const [user, formData] = await Promise.all([
+      getOptionalUser(),
+      request.formData(),
+    ]);
     const isAnonymous = !user;
 
-    const formData = await request.formData();
-    let quality = (formData.get("quality") as string) || "standard";
+    let quality = (formData.get("quality") as string) || GENERATION_MODE.STANDARD;
     const imageFile = formData.get("image") as File | null;
     const materialId = formData.get("material_id") as string | null;
 
-    // Anonymous users are forced to standard mode (Pro uses expensive models)
-    if (isAnonymous && quality === "pro") {
-      quality = "standard";
+    if (isAnonymous && quality === GENERATION_MODE.PRO) {
+      quality = GENERATION_MODE.STANDARD;
     }
 
     if (!imageFile || !materialId) {
@@ -77,16 +62,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const MAX_FILE_SIZE = 10 * 1024 * 1024;
-    if (imageFile.size > MAX_FILE_SIZE) {
+    if (imageFile.size > 10 * 1024 * 1024) {
       return NextResponse.json(
         { error: "File too large. Maximum size is 10 MB." },
         { status: 400 },
       );
     }
 
-    // Determine model and cost
-    const isPro = quality === "pro";
+    const isPro = quality === GENERATION_MODE.PRO;
     const model = isPro
       ? AI_MODELS.GEMINI_31_FLASH_IMAGE
       : AI_MODELS.GEMINI_25_FLASH_IMAGE;
@@ -94,10 +77,9 @@ export async function POST(request: NextRequest) {
       ? CREDIT_COST.retexture_pro
       : CREDIT_COST.retexture_standard;
 
-    // Auth + credit check for logged-in users; anonymous rate-limit
     let orgAuth: ApiCreditResult | null = null;
     if (isAnonymous) {
-      if (!canAnonymousGenerate(clientIp)) {
+      if (!checkRateLimit(`anon:${clientIp}`, 1, ANON_WINDOW_MS)) {
         return NextResponse.json(
           {
             error:
@@ -145,10 +127,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Convert images to base64
-    const furnitureBuffer = await optimizeForOpenRouter(
-      Buffer.from(await imageFile.arrayBuffer()),
-    );
+    const rawImageBuffer = Buffer.from(await imageFile.arrayBuffer());
+    const furnitureBuffer = await optimizeForOpenRouter(rawImageBuffer);
     const furnitureBase64 = furnitureBuffer.toString("base64");
 
     let swatchBuffer: Buffer;
@@ -174,7 +154,6 @@ export async function POST(request: NextRequest) {
       `Material description: ${material.promptModifier}`,
     ].join("\n");
 
-    // Deduct credits before API call (logged-in only)
     let creditsRemaining: number | null = null;
     if (orgAuth) {
       creditsRemaining = await deductOrgCredits(
@@ -191,7 +170,12 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Call OpenRouter
+    const tryRefund = async (reason: string) => {
+      if (orgAuth && creditsRemaining !== null) {
+        await refundOrgCredits(orgAuth.orgId, orgAuth.userId, creditCost, reason);
+      }
+    };
+
     let data: Record<string, unknown>;
     try {
       const resp = await callOpenRouter({
@@ -219,15 +203,7 @@ export async function POST(request: NextRequest) {
       data = (await resp.json()) as Record<string, unknown>;
     } catch (err) {
       console.error("OpenRouter API call failed:", err);
-      // Refund on API failure
-      if (orgAuth && creditsRemaining !== null) {
-        await refundOrgCredits(
-          orgAuth.orgId,
-          orgAuth.userId,
-          creditCost,
-          `Refund: retexture API error`,
-        );
-      }
+      await tryRefund("Refund: retexture API error");
       throw new Error("AI generation failed. Please try again.");
     }
 
@@ -240,18 +216,10 @@ export async function POST(request: NextRequest) {
     )?.choices?.[0]?.message?.images;
 
     if (!images || images.length === 0) {
-      if (orgAuth && creditsRemaining !== null) {
-        await refundOrgCredits(
-          orgAuth.orgId,
-          orgAuth.userId,
-          creditCost,
-          `Refund: no image returned`,
-        );
-      }
+      await tryRefund("Refund: no image returned");
       throw new Error("No image returned from model");
     }
 
-    // Post-process & save
     const resultBase64 = images[0].image_url.url;
     let resultBuffer = Buffer.from(
       resultBase64.includes(",") ? resultBase64.split(",")[1] : resultBase64,
@@ -263,10 +231,8 @@ export async function POST(request: NextRequest) {
     }
 
     const [inputImageUrl, resultImageUrl] = await Promise.all([
-      saveImageAsWebp(Buffer.from(await imageFile.arrayBuffer())),
-      saveBase64Image(
-        `data:image/png;base64,${resultBuffer.toString("base64")}`,
-      ),
+      saveImageAsWebp(rawImageBuffer),
+      saveImageAsWebp(resultBuffer, "results"),
     ]);
 
     const shareHash = nanoid(8);
@@ -299,10 +265,6 @@ export async function POST(request: NextRequest) {
         shareHash,
       },
     });
-
-    if (isAnonymous) {
-      recordAnonymousGeneration(clientIp);
-    }
 
     return NextResponse.json({
       success: true,

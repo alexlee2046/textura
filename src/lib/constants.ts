@@ -1,9 +1,6 @@
 export const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
-export const AI_MODEL =
-  process.env.AI_MODEL || "google/gemini-2.5-flash-image";
-
 export const MATERIAL_STATUS = {
   ACTIVE: "active",
   ARCHIVED: "archived",
