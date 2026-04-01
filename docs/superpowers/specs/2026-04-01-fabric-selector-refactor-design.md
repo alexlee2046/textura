@@ -6,7 +6,7 @@ Replace hardcoded fabric data with multi-tenant Material table queries. FabricSe
 
 ## Architecture
 
-The `/my` layout provides org context via React Context. FabricSelector receives `orgSlug` as a prop and fetches from `/api/materials/*` endpoints. The `Fabric` type is replaced by a unified `Material` type.
+The `/my` layout provides org context via React Context. FabricSelector receives `orgSlug` as a prop and fetches from `/api/my/materials/*` endpoints (authenticated, org-scoped). The `Fabric` type is replaced by a unified `Material` type.
 
 ## 1. Org Context Provider
 
@@ -35,13 +35,17 @@ type OrgContextValue = {
 
 ## 2. API Routes
 
-### 2a. `GET /api/materials/series`
+Routes under `/api/my/materials/*` require authentication and validate that the requesting user belongs to the org identified by their session (via `getOrgContext()` or `apiGuard()`). This prevents cross-org material enumeration.
+
+### 2a. `GET /api/my/materials/series`
 
 Returns materials grouped by series for FabricSelector's series view.
 
+**Auth:** User must be an active member of the org (enforced via session).
+
 **Query params:**
-- `org_slug` (required)
 - `category` (optional) — filter by category
+- `limit` (optional, default 100) — max series returned
 
 **Response:**
 ```json
@@ -58,17 +62,19 @@ Returns materials grouped by series for FabricSelector's series view.
 }
 ```
 
-**Implementation:** Query Material table grouped by `(name, seriesCode)`, count colors, pick first image as representative. Filter by `status=active`, `deletedAt=null`.
+**Implementation:** Query Material table grouped by `(name, seriesCode)`, count colors. Join `MaterialImage` (where `isPrimary=true`) to get representative image URL. Filter by `status=active`, `deletedAt=null`. The `org_slug` comes from session, not query params.
 
-### 2b. `GET /api/materials/search`
+### 2b. `GET /api/my/materials/search`
 
-Handles two use cases: text search and ID-based batch lookup.
+Handles three use cases: text search, ID-based batch lookup, and series color listing.
+
+**Auth:** Same as 2a.
 
 **Query params:**
-- `org_slug` (required)
 - `q` (optional) — search term, matches against name, color, colorCode, seriesCode
-- `ids` (optional) — comma-separated material IDs for favorites lookup
+- `ids` (optional) — comma-separated material IDs for favorites lookup (always filtered by user's org to prevent cross-org leakage)
 - `series` (optional) — filter by series name (for "colors within series" view)
+- `limit` (optional, default 50) — max results returned
 
 **Response:**
 ```json
@@ -80,17 +86,18 @@ Handles two use cases: text search and ID-based batch lookup.
     "category": "Fabric",
     "color": "OLDROSE",
     "colorCode": "0937.0998",
-    "imageUrl": "https://...",
-    "promptModifier": ""
+    "imageUrl": "https://..."
   }
 ]
 ```
 
-Note: `promptModifier` is returned here (needed by generate API routes which receive material ID from client, then look up promptModifier server-side). Actually — generate routes should look up promptModifier from DB by material ID, not trust client. So `promptModifier` is **not returned** to client.
+**`imageUrl` resolution:** Material has no `imageUrl` column. Each route must join `MaterialImage` (where `isPrimary=true`, take 1) and map `images[0]?.url ?? null` to produce `imageUrl`. This matches the pattern in the existing `/api/materials` route (line 40-58).
+
+**`promptModifier`:** Not returned to client. Generate routes look up `promptModifier` server-side by `materialId`.
 
 ### 2c. `GET /api/materials` (unchanged)
 
-Stays as-is for vendor public page (`MaterialGrid`).
+Stays as-is for vendor public page (`MaterialGrid`). This is a public, unauthenticated route scoped by `org_slug` query param.
 
 ## 3. Type System
 
@@ -139,10 +146,12 @@ interface FabricSelectorProps {
 ```
 
 **API call changes:**
-- `/api/fabrics/series?category=X` → `/api/materials/series?org_slug=X&category=Y`
-- `/api/fabrics?seriesName=X` → `/api/materials/search?org_slug=X&series=Y`
-- `/api/fabrics?q=X` → `/api/materials/search?org_slug=X&q=Y`
-- `/api/fabrics?ids=X` → `/api/materials/search?org_slug=X&ids=Y`
+- `/api/fabrics/series?category=X` → `/api/my/materials/series?category=Y`
+- `/api/fabrics?seriesName=X` → `/api/my/materials/search?series=Y`
+- `/api/fabrics?q=X` → `/api/my/materials/search?q=Y`
+- `/api/fabrics?ids=X` → `/api/my/materials/search?ids=Y`
+
+(No `org_slug` in query params — org is derived from session.)
 
 **Image handling:**
 - Remove `thumbUrl()` / `microUrl()` calls
@@ -182,9 +191,16 @@ Currently, retexture/multi-fabric generate routes receive fabric data (including
 
 **Note:** This is a security improvement but may require changes to the generate routes. The current refactor should at minimum pass `materialId` alongside the material data, with full server-side lookup as a follow-up if needed.
 
+## 7. Brand Handling
+
+The old `Fabric` type had a `brand` field (`"Elastron" | "Magenta"`). In multi-tenant mode, brand = organization. The `Material` type has no `brand` field. Category filter chips in FabricSelector that referenced brand-specific logic should use `category` only. Organization name is available from `OrgContext` if needed for display.
+
+## 8. Favorites Cross-Org Safety
+
+Favorites are stored in localStorage by material ID. If a user belongs to multiple organizations, their favorites may contain IDs from a different org. The `/api/my/materials/search?ids=...` endpoint always filters by the user's current org, so cross-org IDs simply return no results (safe, not leaked).
+
 ## Out of Scope
 
 - Dashboard material management (already works via `/api/dashboard/materials`)
 - Vendor public page (`/v/[slug]`) — already uses `MaterialGrid` with `/api/materials`
 - Image upload/storage for materials (handled by dashboard)
-- `promptModifier` server-side-only enforcement (can be follow-up)
