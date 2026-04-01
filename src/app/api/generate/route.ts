@@ -4,13 +4,20 @@ import sharp from "sharp";
 import { nanoid } from "nanoid";
 import { prisma } from "@/lib/prisma";
 import { getOptionalUser } from "@/lib/dal";
-import { saveBase64Image, saveUploadedFile } from "@/lib/storage";
-import { MATERIAL_STATUS, AI_MODEL } from "@/lib/constants";
+import { requireOrgWithCredits, type ApiCreditResult } from "@/lib/api-guard";
+import { saveBase64Image, saveImageAsWebp } from "@/lib/storage";
+import { callOpenRouter } from "@/lib/openrouter";
+import { deductOrgCredits, refundOrgCredits } from "@/lib/credits";
+import { optimizeForOpenRouter } from "@/lib/image-utils";
 import { getImageBuffer } from "@/lib/image-fetch";
+import {
+  MATERIAL_STATUS,
+  AI_MODELS,
+  CREDIT_COST,
+  GENERATION_TYPE,
+} from "@/lib/constants";
 
-// ---------------------------------------------------------------------------
 // Anonymous rate-limit: 1 generation per IP per 24 hours
-// ---------------------------------------------------------------------------
 const anonTracker = new Map<string, number>();
 const ANON_WINDOW_MS = 24 * 60 * 60 * 1000;
 
@@ -22,7 +29,6 @@ function canAnonymousGenerate(ip: string): boolean {
 
 function recordAnonymousGeneration(ip: string) {
   anonTracker.set(ip, Date.now());
-  // Lazy cleanup: remove entries older than 24 h when map grows large
   if (anonTracker.size > 10_000) {
     const cutoff = Date.now() - ANON_WINDOW_MS;
     for (const [key, ts] of anonTracker) {
@@ -31,9 +37,6 @@ function recordAnonymousGeneration(ip: string) {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Watermark (for anonymous users)
-// ---------------------------------------------------------------------------
 async function addWatermark(imageBuffer: Buffer): Promise<Buffer> {
   const svg = Buffer.from(`
     <svg width="200" height="40">
@@ -46,12 +49,8 @@ async function addWatermark(imageBuffer: Buffer): Promise<Buffer> {
     .toBuffer();
 }
 
-// ---------------------------------------------------------------------------
-// POST /api/generate
-// ---------------------------------------------------------------------------
 export async function POST(request: NextRequest) {
   try {
-    // ---- Auth (optional) ------------------------------------------------
     const headersList = await headers();
     const clientIp =
       headersList.get("x-forwarded-for")?.split(",")[0].trim() ||
@@ -61,19 +60,15 @@ export async function POST(request: NextRequest) {
     const user = await getOptionalUser();
     const isAnonymous = !user;
 
-    if (isAnonymous) {
-      if (!canAnonymousGenerate(clientIp)) {
-        return NextResponse.json(
-          { error: "Anonymous users are limited to 1 generation per 24 hours. Please sign in for unlimited access." },
-          { status: 429 },
-        );
-      }
-    }
-
-    // ---- Parse FormData -------------------------------------------------
     const formData = await request.formData();
+    let quality = (formData.get("quality") as string) || "standard";
     const imageFile = formData.get("image") as File | null;
     const materialId = formData.get("material_id") as string | null;
+
+    // Anonymous users are forced to standard mode (Pro uses expensive models)
+    if (isAnonymous && quality === "pro") {
+      quality = "standard";
+    }
 
     if (!imageFile || !materialId) {
       return NextResponse.json(
@@ -82,7 +77,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
+    const MAX_FILE_SIZE = 10 * 1024 * 1024;
     if (imageFile.size > MAX_FILE_SIZE) {
       return NextResponse.json(
         { error: "File too large. Maximum size is 10 MB." },
@@ -90,9 +85,40 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ---- Look up material (server-side, never trust client prompt) ------
+    // Determine model and cost
+    const isPro = quality === "pro";
+    const model = isPro
+      ? AI_MODELS.GEMINI_31_FLASH_IMAGE
+      : AI_MODELS.GEMINI_25_FLASH_IMAGE;
+    const creditCost = isPro
+      ? CREDIT_COST.retexture_pro
+      : CREDIT_COST.retexture_standard;
+
+    // Auth + credit check for logged-in users; anonymous rate-limit
+    let orgAuth: ApiCreditResult | null = null;
+    if (isAnonymous) {
+      if (!canAnonymousGenerate(clientIp)) {
+        return NextResponse.json(
+          {
+            error:
+              "Anonymous users are limited to 1 generation per 24 hours. Please sign in for unlimited access.",
+          },
+          { status: 429 },
+        );
+      }
+    } else {
+      const result = await requireOrgWithCredits(creditCost);
+      if (result instanceof NextResponse) return result;
+      orgAuth = result;
+    }
+
+    // Look up material
     const material = await prisma.material.findUnique({
-      where: { id: materialId, status: MATERIAL_STATUS.ACTIVE, deletedAt: null },
+      where: {
+        id: materialId,
+        status: MATERIAL_STATUS.ACTIVE,
+        deletedAt: null,
+      },
       select: {
         id: true,
         name: true,
@@ -103,19 +129,12 @@ export async function POST(request: NextRequest) {
         promptModifier: true,
         organizationId: true,
         organization: { select: { slug: true } },
-        images: {
-          where: { isPrimary: true },
-          take: 1,
-          select: { url: true },
-        },
+        images: { where: { isPrimary: true }, take: 1, select: { url: true } },
       },
     });
 
     if (!material) {
-      return NextResponse.json(
-        { error: "Material not found" },
-        { status: 404 },
-      );
+      return NextResponse.json({ error: "Material not found" }, { status: 404 });
     }
 
     const swatchUrl = material.images[0]?.url;
@@ -126,11 +145,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ---- Convert images to base64 for OpenRouter -----------------------
-    const furnitureBase64 = Buffer.from(await imageFile.arrayBuffer()).toString("base64");
-    const furnitureMime = imageFile.type || "image/jpeg";
+    // Convert images to base64
+    const furnitureBuffer = await optimizeForOpenRouter(
+      Buffer.from(await imageFile.arrayBuffer()),
+    );
+    const furnitureBase64 = furnitureBuffer.toString("base64");
 
-    // Fetch the swatch image from its URL (with timeout)
     let swatchBuffer: Buffer;
     try {
       swatchBuffer = await getImageBuffer(swatchUrl);
@@ -140,10 +160,10 @@ export async function POST(request: NextRequest) {
         { status: 502 },
       );
     }
-    const swatchMime = swatchUrl.endsWith(".png") ? "image/png" : "image/webp";
     const swatchBase64 = swatchBuffer.toString("base64");
+    const swatchMime = swatchUrl.endsWith(".png") ? "image/png" : "image/webp";
 
-    // ---- Build OpenRouter request --------------------------------------
+    // Build prompt
     const prompt = [
       "Image 1: furniture photo. Image 2: material swatch.",
       "Replace the main upholstery/surface material of the furniture with the material shown in Image 2.",
@@ -154,65 +174,96 @@ export async function POST(request: NextRequest) {
       `Material description: ${material.promptModifier}`,
     ].join("\n");
 
-    const contentParts = [
-      {
-        type: "image_url" as const,
-        image_url: { url: `data:${furnitureMime};base64,${furnitureBase64}` },
-      },
-      {
-        type: "image_url" as const,
-        image_url: { url: `data:${swatchMime};base64,${swatchBase64}` },
-      },
-      { type: "text" as const, text: prompt },
-    ];
-
-    const openRouterResp = await fetch(
-      "https://openrouter.ai/api/v1/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: AI_MODEL,
-          messages: [{ role: "user", content: contentParts }],
-          modalities: ["image", "text"],
-        }),
-      },
-    );
-
-    if (!openRouterResp.ok) {
-      const err = await openRouterResp.json().catch(() => ({}));
-      const msg =
-        (err as Record<string, Record<string, string>>)?.error?.message ||
-        "OpenRouter API error";
-      throw new Error(msg);
+    // Deduct credits before API call (logged-in only)
+    let creditsRemaining: number | null = null;
+    if (orgAuth) {
+      creditsRemaining = await deductOrgCredits(
+        orgAuth.orgId,
+        orgAuth.userId,
+        creditCost,
+        `Retexture ${quality}: ${material.name}`,
+      );
+      if (creditsRemaining === null) {
+        return NextResponse.json(
+          { error: "INSUFFICIENT_CREDITS" },
+          { status: 402 },
+        );
+      }
     }
 
-    const data = await openRouterResp.json();
-    const images = (data as { choices?: { message?: { images?: { image_url: { url: string } }[] } }[] })
-      ?.choices?.[0]?.message?.images;
+    // Call OpenRouter
+    let data: Record<string, unknown>;
+    try {
+      const resp = await callOpenRouter({
+        model,
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "image_url",
+                image_url: {
+                  url: `data:image/jpeg;base64,${furnitureBase64}`,
+                },
+              },
+              {
+                type: "image_url",
+                image_url: { url: `data:${swatchMime};base64,${swatchBase64}` },
+              },
+              { type: "text", text: prompt },
+            ],
+          },
+        ],
+        modalities: ["image", "text"],
+      });
+      data = (await resp.json()) as Record<string, unknown>;
+    } catch (err) {
+      console.error("OpenRouter API call failed:", err);
+      // Refund on API failure
+      if (orgAuth && creditsRemaining !== null) {
+        await refundOrgCredits(
+          orgAuth.orgId,
+          orgAuth.userId,
+          creditCost,
+          `Refund: retexture API error`,
+        );
+      }
+      throw new Error("AI generation failed. Please try again.");
+    }
+
+    const images = (
+      data as {
+        choices?: {
+          message?: { images?: { image_url: { url: string } }[] };
+        }[];
+      }
+    )?.choices?.[0]?.message?.images;
 
     if (!images || images.length === 0) {
+      if (orgAuth && creditsRemaining !== null) {
+        await refundOrgCredits(
+          orgAuth.orgId,
+          orgAuth.userId,
+          creditCost,
+          `Refund: no image returned`,
+        );
+      }
       throw new Error("No image returned from model");
     }
 
-    // ---- Post-process & save -------------------------------------------
+    // Post-process & save
     const resultBase64 = images[0].image_url.url;
     let resultBuffer = Buffer.from(
       resultBase64.includes(",") ? resultBase64.split(",")[1] : resultBase64,
       "base64",
     );
 
-    // Watermark for anonymous users
     if (isAnonymous) {
-      resultBuffer = await addWatermark(resultBuffer) as Buffer<ArrayBuffer>;
+      resultBuffer = (await addWatermark(resultBuffer)) as Buffer<ArrayBuffer>;
     }
 
-    // Save input + result to disk
     const [inputImageUrl, resultImageUrl] = await Promise.all([
-      saveUploadedFile(imageFile),
+      saveImageAsWebp(Buffer.from(await imageFile.arrayBuffer())),
       saveBase64Image(
         `data:image/png;base64,${resultBuffer.toString("base64")}`,
       ),
@@ -220,7 +271,6 @@ export async function POST(request: NextRequest) {
 
     const shareHash = nanoid(8);
 
-    // Frozen material snapshot for the generation record
     const materialSnapshot = {
       id: material.id,
       name: material.name,
@@ -234,23 +284,22 @@ export async function POST(request: NextRequest) {
       swatchUrl,
     };
 
-    // ---- Persist generation record -------------------------------------
     await prisma.generation.create({
       data: {
-        organizationId: material.organizationId,
+        organizationId: orgAuth?.orgId ?? material.organizationId,
         userId: user?.userId ?? null,
         materialId: material.id,
         materialSnapshot,
-        type: "retexture",
-        creditCost: 0,
-        modelUsed: AI_MODEL,
+        type: GENERATION_TYPE.RETEXTURE,
+        mode: quality,
+        creditCost: orgAuth ? creditCost : 0,
+        modelUsed: model,
         inputImageUrl,
         resultImageUrl,
         shareHash,
       },
     });
 
-    // Record anonymous usage AFTER successful generation
     if (isAnonymous) {
       recordAnonymousGeneration(clientIp);
     }
@@ -261,6 +310,7 @@ export async function POST(request: NextRequest) {
       shareHash,
       materialName: material.name,
       vendorSlug: material.organization.slug,
+      creditsRemaining: creditsRemaining ?? undefined,
     });
   } catch (error: unknown) {
     console.error("Error in /api/generate:", error);
