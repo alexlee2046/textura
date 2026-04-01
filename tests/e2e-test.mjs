@@ -6,8 +6,9 @@
  */
 
 const IS_INTERNAL = process.argv.includes('--internal');
+// Container IP may change after redeployment — pass via --base-url or auto-detect
 const BASE_URL = process.argv.find(a => a.startsWith('--base-url='))?.split('=')[1]
-  || (IS_INTERNAL ? 'http://10.0.1.11:3000' : 'https://textura.dev.canbee.cn');
+  || (IS_INTERNAL ? `http://${process.env.CONTAINER_IP || '10.0.1.26'}:3000` : 'https://textura.dev.canbee.cn');
 const SUPABASE_URL = IS_INTERNAL
   ? 'http://10.0.1.11:54330'
   : 'https://supa-textura.dev.canbee.cn';

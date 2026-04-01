@@ -6,7 +6,7 @@
  */
 
 const IS_INTERNAL = process.argv.includes('--internal');
-const BASE_URL = IS_INTERNAL ? 'http://10.0.1.11:3000' : 'https://textura.dev.canbee.cn';
+const BASE_URL = IS_INTERNAL ? `http://${process.env.CONTAINER_IP || '10.0.1.26'}:3000` : 'https://textura.dev.canbee.cn';
 const SUPABASE_AUTH_URL = IS_INTERNAL ? 'http://10.0.1.18:8000' : 'https://supa-textura.dev.canbee.cn';
 // Cookie name = sb-{hostname.split('.')[0]}-auth-token
 // For deployed: NEXT_PUBLIC_SUPABASE_URL=https://supa-textura.dev.canbee.cn → sb-supa-textura-auth-token
