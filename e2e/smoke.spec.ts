@@ -68,9 +68,11 @@ test.describe('Scene composition page', () => {
     const isOnTargetOrValid = url.includes('/my/scene') || url.includes('/onboarding') || url.includes('/');
     expect(isOnTargetOrValid).toBe(true);
 
+    // Look for the product image drop zone (the visible div that triggers file input)
+    // It has ImageIcon inside it with class "w-7 h-7 text-zinc-300"
     await expect(
       page
-        .locator('input[type="file"], [data-testid="product-upload"]')
+        .locator('div.w-20.h-20.rounded-xl.border-dashed')
         .first()
     ).toBeVisible({ timeout: 8000 });
   });
@@ -88,7 +90,11 @@ test.describe('Orthographic drawing page', () => {
     const isOnTargetOrValid = url.includes('/my/orthographic') || url.includes('/onboarding') || url.includes('/');
     expect(isOnTargetOrValid).toBe(true);
 
-    await expect(page.locator('main, [role="main"]').first()).toBeVisible({
+    // Look for the page header (has Ruler icon and title)
+    // The page uses div wrapper, so look for the visible heading or main content div
+    await expect(
+      page.locator('h1, [role="heading"], div.max-w-4xl').first()
+    ).toBeVisible({
       timeout: 8000,
     });
   });
