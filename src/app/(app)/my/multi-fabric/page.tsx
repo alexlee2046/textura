@@ -13,7 +13,6 @@ import BeforeAfterSlider from "@/components/BeforeAfterSlider";
 import ShareModal from "@/components/ShareModal";
 import { postShareToMiniProgram } from "@/lib/miniProgramShare";
 import type { Material } from "@/types/material";
-import { useOrg } from "@/contexts/OrgContext";
 import type { Region } from "@/lib/multi-fabric-schemas";
 import {
   Download,
@@ -82,7 +81,7 @@ export default function MultiFabricPage() {
   const locale = useLocale();
   const t = useTranslations("multiFabric");
   const { user } = useUser();
-  const { orgSlug } = useOrg();
+
 
   // --- wizard state ---
   const [step, setStep] = useState<Step>("UPLOAD");
@@ -829,7 +828,6 @@ export default function MultiFabricPage() {
               {/* Fabric selector */}
               <div className="flex-1 overflow-y-auto p-4">
                 <FabricSelector
-                  orgSlug={orgSlug}
                   selectedMaterial={
                     activeFabricRegion !== null
                       ? assignments[activeFabricRegion] ?? null

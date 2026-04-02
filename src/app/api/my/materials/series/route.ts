@@ -11,7 +11,6 @@ export async function GET(request: NextRequest) {
   const category = searchParams.get("category");
   const limit = Math.min(Number(searchParams.get("limit")) || 100, 200);
 
-  // Fetch all active materials for this org, grouped client-side
   const materials = await prisma.material.findMany({
     where: {
       organizationId: auth.orgId,

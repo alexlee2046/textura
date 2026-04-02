@@ -8,7 +8,6 @@ import ImageUploader from "@/components/ImageUploader";
 import FabricSelector from "@/components/FabricSelector";
 import ImageCropper, { ASPECT_RATIOS, type AspectRatioOption } from "@/components/ImageCropper";
 import type { Material } from "@/types/material";
-import { useOrg } from "@/contexts/OrgContext";
 import BeforeAfterSlider from "@/components/BeforeAfterSlider";
 import { ArrowLeft, Download, RotateCcw, Sparkles, Shuffle, RefreshCw, AlertTriangle, Share2 } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -75,10 +74,9 @@ export default function Home() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [credits, setCredits] = useState<number | null>(null);
   const { user } = useUser();
-  const { orgSlug } = useOrg();
+
   const handleGenerateRef = useRef<(quality?: "standard" | "pro") => Promise<void>>(async () => {});
 
-  // Task 8: Last quality + share hash
   const [lastQuality, setLastQuality] = useState<"standard" | "pro">("standard");
   const [currentShareHash, setCurrentShareHash] = useState<string | null>(null);
   const [shareModalData, setShareModalData] = useState<{
@@ -505,7 +503,6 @@ export default function Home() {
 
                   <div className="flex-1 glass-panel rounded-3xl p-6 relative overflow-hidden flex flex-col">
                      <FabricSelector
-                        orgSlug={orgSlug}
                         selectedMaterial={selectedFabric}
                         onSelect={setSelectedFabric}
                         compareMode={compareMode}

@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
   const baseWhere = {
     organizationId: auth.orgId,
     status: MATERIAL_STATUS.ACTIVE,
-    deletedAt: null as Date | null,
+    deletedAt: null,
   };
 
   let where: Record<string, unknown>;

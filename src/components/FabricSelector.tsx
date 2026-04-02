@@ -135,7 +135,6 @@ function LazySeriesCard({ series, onClick, categoryBadgeClass, t }: {
 }
 
 interface FabricSelectorProps {
-  orgSlug: string;
   selectedMaterial: Material | null;
   onSelect: (material: Material) => void;
   // Compare mode props
@@ -146,7 +145,6 @@ interface FabricSelectorProps {
 }
 
 export default function FabricSelector({
-  orgSlug: _orgSlug,
   selectedMaterial,
   onSelect,
   compareMode = false,
@@ -257,20 +255,23 @@ export default function FabricSelector({
 
     setSeriesLoading(true);
     const idsParam = [...favorites].join(",");
-    fetch(`/api/my/materials/search?ids=${encodeURIComponent(idsParam)}`, { signal: controller.signal })
-      .then(r => r.json())
-      .then(data => {
+    (async () => {
+      try {
+        const res = await fetch(
+          `/api/my/materials/search?ids=${encodeURIComponent(idsParam)}`,
+          { signal: controller.signal },
+        );
+        const data = await res.json();
         if (!controller.signal.aborted) {
           setFavoriteFabrics(Array.isArray(data) ? data : []);
         }
-      })
-      .catch(err => {
+      } catch (err) {
         if (err instanceof DOMException && err.name === "AbortError") return;
         if (!controller.signal.aborted) setFavoriteFabrics([]);
-      })
-      .finally(() => {
+      } finally {
         if (!controller.signal.aborted) setSeriesLoading(false);
-      });
+      }
+    })();
   }, [categoryFilter, favorites]);
 
   // Fetch colors for active series
