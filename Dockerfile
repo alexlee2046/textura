@@ -35,8 +35,8 @@ COPY --from=builder /app/public ./public
 # Create directory for generated images
 RUN mkdir -p /app/public/generated && chown nextjs:nodejs /app/public/generated
 
-# Fix .next/cache permissions for nextjs user
-RUN mkdir -p /app/.next/cache && chown -R nextjs:nodejs /app/.next
+# Create .next directory with proper permissions for nextjs user
+RUN mkdir -p /app/.next/cache && chmod 755 /app/.next && chmod 755 /app/.next/cache && chown -R nextjs:nodejs /app/.next
 
 USER nextjs
 EXPOSE 3000
