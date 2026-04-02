@@ -24,11 +24,11 @@ export async function prefetchFabricInfo(fabricIds: string[]): Promise<void> {
   fetching = (async () => {
     try {
       const res = await fetch(
-        `/api/fabrics?ids=${encodeURIComponent(missing.join(","))}`,
+        `/api/my/materials/search?ids=${encodeURIComponent(missing.join(","))}`,
       );
       if (!res.ok) return;
       const data = await res.json();
-      for (const f of data.fabrics ?? []) {
+      for (const f of Array.isArray(data) ? data : []) {
         cache.set(f.id, { name: f.name, color: f.color });
       }
     } finally {
