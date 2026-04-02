@@ -15,13 +15,15 @@ export async function loginAs(
   await page.locator('input[type="password"]').fill(password);
   await page.getByRole('button', { name: /login|登录/i }).click();
   // Wait for navigation away from /login
-  let loginPageUrl = page.url();
   // Poll until URL changes from /login or timeout
   let maxAttempts = 40; // 40 * 500ms = 20s
   while (maxAttempts > 0) {
     await page.waitForTimeout(500);
-    if (!page.url().includes('/login')) {
-      return; // Successfully navigated away from login
+    const currentUrl = page.url();
+    // Successfully logged in if we're not on /login anymore
+    // (could be /my/*, /dashboard, /onboarding, or /)
+    if (!currentUrl.includes('/login')) {
+      return; // Successfully logged in
     }
     maxAttempts--;
   }
