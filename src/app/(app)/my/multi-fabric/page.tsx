@@ -12,7 +12,8 @@ import FabricSelector from "@/components/FabricSelector";
 import BeforeAfterSlider from "@/components/BeforeAfterSlider";
 import ShareModal from "@/components/ShareModal";
 import { postShareToMiniProgram } from "@/lib/miniProgramShare";
-import { microUrl, type Fabric } from "@/data/fabrics";
+import type { Material } from "@/types/material";
+import { useOrg } from "@/contexts/OrgContext";
 import type { Region } from "@/lib/multi-fabric-schemas";
 import {
   Download,
@@ -81,6 +82,7 @@ export default function MultiFabricPage() {
   const locale = useLocale();
   const t = useTranslations("multiFabric");
   const { user } = useUser();
+  const { orgSlug } = useOrg();
 
   // --- wizard state ---
   const [step, setStep] = useState<Step>("UPLOAD");
@@ -102,7 +104,7 @@ export default function MultiFabricPage() {
   const [detectError, setDetectError] = useState<string | null>(null);
 
   // assignment
-  const [assignments, setAssignments] = useState<Record<number, Fabric | null>>({});
+  const [assignments, setAssignments] = useState<Record<number, Material | null>>({});
   const [activeFabricRegion, setActiveFabricRegion] = useState<number | null>(null);
 
   // generation
@@ -219,7 +221,7 @@ export default function MultiFabricPage() {
 
       setRegions(detectedRegions);
       // Initialize all assignments to null
-      const initial: Record<number, Fabric | null> = {};
+      const initial: Record<number, Material | null> = {};
       for (const r of detectedRegions) {
         initial[r.id] = null;
       }
@@ -594,8 +596,8 @@ export default function MultiFabricPage() {
                         <div className="flex items-center gap-2">
                           <div className="relative w-9 h-9 rounded-lg overflow-hidden border border-zinc-200 shrink-0">
                             <Image
-                              src={microUrl(assignedFabric.image)}
-                              alt={assignedFabric.color}
+                              src={assignedFabric.imageUrl ?? ""}
+                              alt={assignedFabric.color ?? assignedFabric.name}
                               fill
                               className="object-cover"
                               unoptimized
@@ -742,8 +744,8 @@ export default function MultiFabricPage() {
                         >
                           <div className="relative w-12 h-12 rounded-xl overflow-hidden border border-zinc-200">
                             <Image
-                              src={microUrl(fabric.image)}
-                              alt={fabric.color}
+                              src={fabric.imageUrl ?? ""}
+                              alt={fabric.color ?? fabric.name}
                               fill
                               className="object-cover"
                               unoptimized
@@ -827,16 +829,17 @@ export default function MultiFabricPage() {
               {/* Fabric selector */}
               <div className="flex-1 overflow-y-auto p-4">
                 <FabricSelector
-                  selectedFabric={
+                  orgSlug={orgSlug}
+                  selectedMaterial={
                     activeFabricRegion !== null
                       ? assignments[activeFabricRegion] ?? null
                       : null
                   }
-                  onSelect={(fabric: Fabric) => {
+                  onSelect={(material: Material) => {
                     if (activeFabricRegion !== null) {
                       setAssignments((prev) => ({
                         ...prev,
-                        [activeFabricRegion]: fabric,
+                        [activeFabricRegion]: material,
                       }));
                       setActiveFabricRegion(null);
                     }
