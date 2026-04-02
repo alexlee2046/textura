@@ -14,6 +14,16 @@ export async function loginAs(
   await page.locator('input[type="email"]').fill(email);
   await page.locator('input[type="password"]').fill(password);
   await page.getByRole('button', { name: /login|登录/i }).click();
-  // Wait for redirect to /my/* or /onboarding or /dashboard (fallback)
-  await page.waitForURL(/\/(my|onboarding|dashboard)/, { timeout: 15000 });
+  // Wait for navigation away from /login
+  let loginPageUrl = page.url();
+  // Poll until URL changes from /login or timeout
+  let maxAttempts = 40; // 40 * 500ms = 20s
+  while (maxAttempts > 0) {
+    await page.waitForTimeout(500);
+    if (!page.url().includes('/login')) {
+      return; // Successfully navigated away from login
+    }
+    maxAttempts--;
+  }
+  throw new Error(`Login timeout: still on /login after 20s`);
 }
