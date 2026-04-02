@@ -10,7 +10,9 @@ test.describe('Auth', () => {
 
   test('login with valid credentials', async ({ page }) => {
     await loginAs(page, TEST_USER.email, TEST_USER.password);
-    await expect(page).toHaveURL(/\/my\//);
+    // After login, user is redirected to either /my/* (if org exists) or /onboarding (if no org)
+    const url = page.url();
+    expect(url).toMatch(/\/(my|onboarding)/);
   });
 
   test('login with wrong password shows error', async ({ page }) => {
