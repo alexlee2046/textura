@@ -7,7 +7,7 @@ COPY package.json package-lock.json ./
 COPY prisma ./prisma/
 # Use China mirrors: npmmirror for npm packages, npmmirror for Prisma engines
 ENV PRISMA_ENGINES_MIRROR=https://registry.npmmirror.com/-/binary/prisma
-RUN --mount=type=cache,target=/root/.npm \
+RUN --mount=type=cache,id=textura-npm,target=/root/.npm \
     npm config set registry https://registry.npmmirror.com && npm ci --legacy-peer-deps
 
 FROM base AS builder
@@ -17,8 +17,9 @@ COPY . .
 # Generate Prisma client (cache engines download)
 RUN --mount=type=cache,target=/root/.cache/prisma \
     npx prisma generate
-# Build (use temp cache directory, don't persist to prevent permission issues)
-RUN npm run build
+# Build with Next.js incremental cache
+RUN --mount=type=cache,id=textura-next,target=/app/.next/cache \
+    npm run build
 
 FROM base AS runner
 WORKDIR /app
