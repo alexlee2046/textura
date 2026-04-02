@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { getOrgContext } from "@/lib/dal";
 import { OrgProvider } from "@/contexts/OrgContext";
+import AppNavbar from "@/components/AppNavbar";
 
 export default async function MyLayout({
   children,
@@ -11,6 +12,7 @@ export default async function MyLayout({
 
   return (
     <OrgProvider orgSlug={ctx.orgSlug} orgId={ctx.orgId}>
+      <AppNavbar />
       {children}
     </OrgProvider>
   );
