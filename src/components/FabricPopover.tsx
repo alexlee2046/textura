@@ -3,11 +3,10 @@
 import { useState, useRef, useCallback, useEffect, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { thumbUrl } from "@/data/fabrics";
-import type { Fabric } from "@/data/fabrics";
+import type { Material } from "@/types/material";
 
 interface FabricPopoverProps {
-  fabric: Fabric;
+  fabric: Material;
   children: ReactNode;
 }
 
@@ -90,15 +89,15 @@ export function FabricPopover({ fabric, children }: FabricPopoverProps) {
                   onClick={(e) => e.stopPropagation()}
                 >
                   <img
-                    src={thumbUrl(fabric.image)}
-                    alt={fabric.color}
+                    src={fabric.imageUrl ?? ""}
+                    alt={fabric.color ?? fabric.name}
                     className="w-64 h-64 rounded-xl object-cover mx-auto"
                   />
                   <div className="mt-2 text-center">
                     <p className="text-xs text-zinc-400 uppercase tracking-wide">
-                      {fabric.brand} · {fabric.name}
+                      {fabric.name}
                     </p>
-                    <p className="text-sm font-bold text-zinc-800">{fabric.color}</p>
+                    <p className="text-sm font-bold text-zinc-800">{fabric.color ?? ""}</p>
                   </div>
                 </motion.div>
               </>
