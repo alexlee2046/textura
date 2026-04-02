@@ -21,7 +21,7 @@ test.describe('Auth', () => {
     await page.locator('input[type="password"]').fill('wrong-password-xyz');
     await page.getByRole('button', { name: /login|登录/i }).click();
     await expect(
-      page.getByText(/invalid|error|incorrect|密码|邮箱/i)
+      page.getByText(/邮箱或密码错误|invalid|incorrect/i)
     ).toBeVisible({ timeout: 5000 });
   });
 });
