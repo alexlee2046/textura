@@ -7,7 +7,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import ImageUploader from "@/components/ImageUploader";
 import FabricSelector from "@/components/FabricSelector";
 import ImageCropper, { ASPECT_RATIOS, type AspectRatioOption } from "@/components/ImageCropper";
-import { microUrl, type Fabric } from "@/data/fabrics";
+import type { Material } from "@/types/material";
+import { useOrg } from "@/contexts/OrgContext";
 import BeforeAfterSlider from "@/components/BeforeAfterSlider";
 import { ArrowLeft, Download, RotateCcw, Sparkles, Shuffle, RefreshCw, AlertTriangle, Share2 } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -68,12 +69,13 @@ export default function Home() {
   const [croppedUrl, setCroppedUrl] = useState<string | null>(null);
   const [selectedAspectRatio, setSelectedAspectRatio] = useState<AspectRatioOption>(ASPECT_RATIOS[3]);
   const [isCropping, setIsCropping] = useState(false);
-  const [selectedFabric, setSelectedFabric] = useState<Fabric | null>(null);
+  const [selectedFabric, setSelectedFabric] = useState<Material | null>(null);
   const [resultImageUrl, setResultImageUrl] = useState<string | null>(null);
   const [generatingQuality, setGeneratingQuality] = useState<"standard" | "pro" | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [credits, setCredits] = useState<number | null>(null);
   const { user } = useUser();
+  const { orgSlug } = useOrg();
   const handleGenerateRef = useRef<(quality?: "standard" | "pro") => Promise<void>>(async () => {});
 
   // Task 8: Last quality + share hash
@@ -86,12 +88,12 @@ export default function Home() {
 
   // Compare mode state
   const [compareMode, setCompareMode] = useState(false);
-  const [compareFabrics, setCompareFabrics] = useState<Map<string, Fabric>>(new Map());
+  const [compareFabrics, setCompareFabrics] = useState<Map<string, Material>>(new Map());
   // Derive Set for passing to FabricSelector
   const compareSelection = useMemo(() => new Set(compareFabrics.keys()), [compareFabrics]);
   const [batchResults, setBatchResults] = useState<Array<{
     fabricId: string;
-    fabric: Fabric;
+    fabric: Material;
     imageUrl: string;
     shareHash: string;
   }>>([]);
@@ -188,19 +190,13 @@ export default function Home() {
 
   const generateForFabric = async (
     imageFile: File,
-    fabric: Fabric,
+    material: Material,
     quality: "standard" | "pro",
   ): Promise<{ imageUrl: string; shareHash: string; creditsRemaining: number } | null> => {
-    const swatchRes = await fetch(fabric.image);
-    const swatchBlob = await swatchRes.blob();
-    const swatchFile = new File([swatchBlob], "swatch.webp", { type: swatchBlob.type });
-
     const formData = new FormData();
     formData.append("image", imageFile);
-    formData.append("swatch", swatchFile);
-    formData.append("prompt", fabric.promptModifier);
+    formData.append("material_id", material.id);
     formData.append("quality", quality);
-    formData.append("fabricId", fabric.id);
     formData.append("aspectRatio", selectedAspectRatio.apiValue);
 
     const res = await fetch("/api/generate", { method: "POST", body: formData });
@@ -252,7 +248,7 @@ export default function Home() {
   };
 
   // Compare mode handlers
-  const handleCompareToggle = (fabric: Fabric) => {
+  const handleCompareToggle = (fabric: Material) => {
     setCompareFabrics(prev => {
       const next = new Map(prev);
       if (next.has(fabric.id)) next.delete(fabric.id);
@@ -509,7 +505,8 @@ export default function Home() {
 
                   <div className="flex-1 glass-panel rounded-3xl p-6 relative overflow-hidden flex flex-col">
                      <FabricSelector
-                        selectedFabric={selectedFabric}
+                        orgSlug={orgSlug}
+                        selectedMaterial={selectedFabric}
                         onSelect={setSelectedFabric}
                         compareMode={compareMode}
                         compareSelection={compareSelection}
@@ -553,10 +550,10 @@ export default function Home() {
                  {selectedFabric && batchResults.length <= 1 && (
                    <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-200">
                      <FabricPopover fabric={selectedFabric}>
-                       <img src={microUrl(selectedFabric.image)} alt={selectedFabric.color} className="w-16 h-16 rounded-xl object-cover border border-zinc-200 flex-shrink-0 shadow-sm cursor-pointer" />
+                       <img src={selectedFabric.imageUrl ?? ""} alt={selectedFabric.color ?? selectedFabric.name} className="w-16 h-16 rounded-xl object-cover border border-zinc-200 flex-shrink-0 shadow-sm cursor-pointer" />
                      </FabricPopover>
                      <div>
-                       <p className="text-xs text-zinc-400 uppercase tracking-wide">{selectedFabric.brand} · {selectedFabric.name}</p>
+                       <p className="text-xs text-zinc-400 uppercase tracking-wide">{selectedFabric.name}</p>
                        <p className="text-base font-bold text-zinc-800">{selectedFabric.color}</p>
                      </div>
                    </div>
@@ -637,7 +634,7 @@ export default function Home() {
                         </div>
                         <div className="p-2 flex items-center gap-2">
                           <FabricPopover fabric={result.fabric}>
-                            <img src={microUrl(result.fabric.image)} alt="" className="w-6 h-6 rounded-full object-cover cursor-pointer" />
+                            <img src={result.fabric.imageUrl ?? ""} alt="" className="w-6 h-6 rounded-full object-cover cursor-pointer" />
                           </FabricPopover>
                           <div className="min-w-0">
                             <p className="text-xs font-semibold text-zinc-800 truncate">{result.fabric.name}</p>
