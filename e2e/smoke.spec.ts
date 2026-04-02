@@ -4,8 +4,8 @@ import { loginAs, TEST_USER } from './fixtures';
 test.describe('Auth', () => {
   test('login page loads', async ({ page }) => {
     await page.goto('/login');
-    await expect(page.getByLabel(/email/i)).toBeVisible();
-    await expect(page.getByLabel(/password/i)).toBeVisible();
+    await expect(page.locator('input[type="email"]')).toBeVisible();
+    await expect(page.locator('input[type="password"]')).toBeVisible();
   });
 
   test('login with valid credentials', async ({ page }) => {
@@ -15,11 +15,11 @@ test.describe('Auth', () => {
 
   test('login with wrong password shows error', async ({ page }) => {
     await page.goto('/login');
-    await page.getByLabel(/email/i).fill(TEST_USER.email);
-    await page.getByLabel(/password/i).fill('wrong-password-xyz');
-    await page.getByRole('button', { name: /sign in|登录/i }).click();
+    await page.locator('input[type="email"]').fill(TEST_USER.email);
+    await page.locator('input[type="password"]').fill('wrong-password-xyz');
+    await page.getByRole('button', { name: /login|登录/i }).click();
     await expect(
-      page.getByText(/invalid|error|incorrect|密码/i)
+      page.getByText(/invalid|error|incorrect|密码|邮箱/i)
     ).toBeVisible({ timeout: 5000 });
   });
 });

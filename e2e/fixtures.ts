@@ -9,9 +9,9 @@ export async function loginAs(
   password: string
 ) {
   await page.goto('/login');
-  await page.getByLabel(/email/i).fill(email);
-  await page.getByLabel(/password/i).fill(password);
-  await page.getByRole('button', { name: /sign in|登录/i }).click();
-  // Wait for redirect to /my/retexture or /onboarding
+  await page.locator('input[type="email"]').fill(email);
+  await page.locator('input[type="password"]').fill(password);
+  await page.getByRole('button', { name: /login|登录/i }).click();
+  // Wait for redirect to /my/* or /onboarding
   await page.waitForURL(/\/(my|onboarding)/, { timeout: 10000 });
 }
