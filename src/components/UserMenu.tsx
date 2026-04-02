@@ -3,8 +3,9 @@
 import { useUser } from "@/hooks/useUser";
 import { createClient } from "@/lib/supabase/client";
 import { useState, useEffect, useRef } from "react";
-import { LogOut } from "lucide-react";
+import { LogOut, LayoutDashboard } from "lucide-react";
 import { useTranslations } from "next-intl";
+import Link from "next/link";
 
 export default function UserMenu() {
   const t = useTranslations("UserMenu");
@@ -41,6 +42,14 @@ export default function UserMenu() {
             {user.email}
           </p>
           <hr className="my-1 border-zinc-100" />
+          <Link
+            href="/dashboard"
+            onClick={() => setOpen(false)}
+            className="w-full flex items-center gap-2 px-4 py-2 text-sm text-zinc-700 hover:bg-zinc-50 transition-colors"
+          >
+            <LayoutDashboard className="w-4 h-4" />
+            管理后台
+          </Link>
           <button
             onClick={async () => {
               const supabase = createClient();
