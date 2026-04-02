@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { Layers, MessageSquare, Settings, LogOut, Menu, X } from "lucide-react";
+import { Layers, MessageSquare, Settings, LogOut, Menu, X, Wand2, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -20,6 +20,13 @@ const NAV_ITEMS = [
   { href: "/dashboard/materials", label: "材质管理", icon: Layers },
   { href: "/dashboard/inquiries", label: "询盘记录", icon: MessageSquare },
   { href: "/dashboard/settings", label: "设置", icon: Settings },
+] as const;
+
+const AI_TOOL_ITEMS = [
+  { href: "/my/retexture", label: "面料换装" },
+  { href: "/my/scene", label: "场景合成" },
+  { href: "/my/multi-fabric", label: "多面料对比" },
+  { href: "/my/orthographic", label: "正射图" },
 ] as const;
 
 function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
@@ -47,6 +54,48 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
         );
       })}
     </nav>
+  );
+}
+
+function AiToolsSection({ onNavigate }: { onNavigate?: () => void }) {
+  const pathname = usePathname();
+  const [open, setOpen] = useState(true);
+
+  return (
+    <div className="mt-4">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between px-3 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider hover:text-foreground transition-colors"
+      >
+        <span className="flex items-center gap-1.5">
+          <Wand2 className="h-3.5 w-3.5" />
+          AI 工具
+        </span>
+        <ChevronRight className={cn("h-3.5 w-3.5 transition-transform", open && "rotate-90")} />
+      </button>
+      {open && (
+        <div className="mt-1 flex flex-col gap-0.5">
+          {AI_TOOL_ITEMS.map((item) => {
+            const active = pathname.startsWith(item.href);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={onNavigate}
+                className={cn(
+                  "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                  active
+                    ? "bg-accent text-accent-foreground"
+                    : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                )}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -80,7 +129,10 @@ export function DesktopSidebar() {
       </div>
 
       <div className="flex flex-1 flex-col justify-between p-3">
-        <NavLinks />
+        <div>
+          <NavLinks />
+          <AiToolsSection />
+        </div>
         <LogoutButton />
       </div>
     </aside>
@@ -113,7 +165,10 @@ export function MobileHeader() {
             </SheetTitle>
           </SheetHeader>
           <div className="flex flex-1 flex-col justify-between p-3">
-            <NavLinks onNavigate={() => setOpen(false)} />
+            <div>
+              <NavLinks onNavigate={() => setOpen(false)} />
+              <AiToolsSection onNavigate={() => setOpen(false)} />
+            </div>
             <LogoutButton />
           </div>
         </SheetContent>
