@@ -35,6 +35,9 @@ COPY --from=builder /app/public ./public
 # Create directory for generated images
 RUN mkdir -p /app/public/generated && chown nextjs:nodejs /app/public/generated
 
+# Fix .next/cache permissions for nextjs user
+RUN mkdir -p /app/.next/cache && chown -R nextjs:nodejs /app/.next
+
 USER nextjs
 EXPOSE 3000
 ENV PORT=3000
