@@ -17,9 +17,8 @@ COPY . .
 # Generate Prisma client (cache engines download)
 RUN --mount=type=cache,target=/root/.cache/prisma \
     npx prisma generate
-# Build (cache Next.js build artifacts)
-RUN --mount=type=cache,target=/app/.next/cache \
-    npm run build
+# Build (use temp cache directory, don't persist to prevent permission issues)
+RUN npm run build
 
 FROM base AS runner
 WORKDIR /app
@@ -32,11 +31,10 @@ COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
 
-# Create directory for generated images
-RUN mkdir -p /app/public/generated && chown nextjs:nodejs /app/public/generated
-
-# Create .next directory with proper permissions for nextjs user
-RUN mkdir -p /app/.next/cache && chmod 755 /app/.next && chmod 755 /app/.next/cache && chown -R nextjs:nodejs /app/.next
+# Create directory for generated images and fix permissions
+RUN mkdir -p /app/public/generated && \
+    chown -R nextjs:nodejs /app && \
+    chmod -R u+w /app
 
 USER nextjs
 EXPOSE 3000
