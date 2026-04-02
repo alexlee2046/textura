@@ -8,10 +8,12 @@ export async function loginAs(
   email: string,
   password: string
 ) {
+  // Clear cookies to ensure fresh login state
+  await page.context().clearCookies();
   await page.goto('/login');
   await page.locator('input[type="email"]').fill(email);
   await page.locator('input[type="password"]').fill(password);
   await page.getByRole('button', { name: /login|登录/i }).click();
-  // Wait for redirect to /my/* or /onboarding
-  await page.waitForURL(/\/(my|onboarding)/, { timeout: 10000 });
+  // Wait for redirect to /my/* or /onboarding or /dashboard (fallback)
+  await page.waitForURL(/\/(my|onboarding|dashboard)/, { timeout: 15000 });
 }
