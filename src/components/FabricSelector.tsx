@@ -7,20 +7,11 @@ import Image from "next/image";
 import { createPortal } from "react-dom";
 import { useDebounce } from "use-debounce";
 import { Heart } from "lucide-react";
-import { apiFabricToFabric, thumbUrl, microUrl } from "@/data/fabrics";
-import type { Fabric } from "@/data/fabrics";
+import type { Material, SeriesEntry } from "@/types/material";
 
 type CategoryFilter = "All" | "Favorites" | "Fabric" | "Natural Fabric" | "Advanced" | "Leather";
 
 type Screen = "series" | "colors";
-
-type SeriesEntry = {
-  name: string;
-  category: Fabric["category"];
-  colorCount: number;
-  representativeImage: string;
-  seriesCode: string;
-};
 
 function categoryBadgeClass(cat: string) {
   switch (cat) {
@@ -49,7 +40,7 @@ function LoadingSpinner({ className = "" }: { className?: string }) {
 }
 
 interface FabricCardProps {
-  fabric: Fabric;
+  fabric: Material;
   isSelected: boolean;
   disabled: boolean;
   onClick: () => void;
@@ -72,8 +63,8 @@ function FabricCard({ fabric, isSelected, disabled, onClick, renderHeartButton, 
         isExpanded ? (isSelected ? "ring-2 ring-zinc-900/40 shadow-lg" : "ring-1 ring-zinc-100 group-hover:ring-zinc-300 shadow-sm") : ""
       }`}>
         <Image
-          src={microUrl(fabric.image)}
-          alt={fabric.color}
+          src={fabric.imageUrl ?? ""}
+          alt={fabric.color ?? fabric.name}
           fill
           className="object-cover"
           unoptimized
@@ -122,7 +113,7 @@ function LazySeriesCard({ series, onClick, categoryBadgeClass, t }: {
       <div className="relative aspect-square w-full bg-zinc-100">
         {visible && (
           <Image
-            src={microUrl(series.representativeImage)}
+            src={series.representativeImage ?? ""}
             alt={series.name}
             fill
             className="object-cover"
@@ -144,17 +135,19 @@ function LazySeriesCard({ series, onClick, categoryBadgeClass, t }: {
 }
 
 interface FabricSelectorProps {
-  selectedFabric: Fabric | null;
-  onSelect: (fabric: Fabric) => void;
+  orgSlug: string;
+  selectedMaterial: Material | null;
+  onSelect: (material: Material) => void;
   // Compare mode props
   compareMode?: boolean;
   compareSelection?: Set<string>;
-  onCompareToggle?: (fabric: Fabric) => void;
+  onCompareToggle?: (material: Material) => void;
   maxCompare?: number;
 }
 
 export default function FabricSelector({
-  selectedFabric,
+  orgSlug: _orgSlug,
+  selectedMaterial,
   onSelect,
   compareMode = false,
   compareSelection,
@@ -177,7 +170,7 @@ export default function FabricSelector({
       return new Set();
     }
   });
-  const [favoriteFabrics, setFavoriteFabrics] = useState<Fabric[]>([]);
+  const [favoriteFabrics, setFavoriteFabrics] = useState<Material[]>([]);
   const favoritesAbortRef = useRef<AbortController | null>(null);
 
   const toggleFavorite = useCallback((fabricId: string, e: React.MouseEvent) => {
@@ -195,11 +188,11 @@ export default function FabricSelector({
   const [allSeries, setAllSeries] = useState<SeriesEntry[]>([]);
   const [seriesLoading, setSeriesLoading] = useState(true);
 
-  const [seriesColors, setSeriesColors] = useState<Fabric[]>([]);
+  const [seriesColors, setSeriesColors] = useState<Material[]>([]);
   const [colorsLoading, setColorsLoading] = useState(false);
 
   const [debouncedQuery] = useDebounce(searchQuery.trim().toLowerCase(), 300);
-  const [searchResults, setSearchResults] = useState<Fabric[]>([]);
+  const [searchResults, setSearchResults] = useState<Material[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
 
   const isSearching = searchQuery.trim().length > 0;
@@ -229,7 +222,7 @@ export default function FabricSelector({
     try {
       const params = new URLSearchParams();
       if (category !== "All") params.set("category", category);
-      const res = await fetch(`/api/fabrics/series?${params}`, { signal: controller.signal });
+      const res = await fetch(`/api/my/materials/series?${params}`, { signal: controller.signal });
       const data = await res.json();
       if (!controller.signal.aborted) {
         setAllSeries(data.series ?? []);
@@ -264,11 +257,11 @@ export default function FabricSelector({
 
     setSeriesLoading(true);
     const idsParam = [...favorites].join(",");
-    fetch(`/api/fabrics?ids=${encodeURIComponent(idsParam)}`, { signal: controller.signal })
+    fetch(`/api/my/materials/search?ids=${encodeURIComponent(idsParam)}`, { signal: controller.signal })
       .then(r => r.json())
       .then(data => {
         if (!controller.signal.aborted) {
-          setFavoriteFabrics((data.fabrics ?? []).map(apiFabricToFabric));
+          setFavoriteFabrics(Array.isArray(data) ? data : []);
         }
       })
       .catch(err => {
@@ -289,12 +282,12 @@ export default function FabricSelector({
     setColorsLoading(true);
     try {
       const res = await fetch(
-        `/api/fabrics?series=${encodeURIComponent(seriesName)}&limit=100`,
+        `/api/my/materials/search?series=${encodeURIComponent(seriesName)}&limit=100`,
         { signal: controller.signal },
       );
       const data = await res.json();
       if (!controller.signal.aborted) {
-        setSeriesColors((data.fabrics ?? []).map(apiFabricToFabric));
+        setSeriesColors(Array.isArray(data) ? data : []);
       }
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") return;
@@ -322,12 +315,12 @@ export default function FabricSelector({
     setSearchLoading(true);
     try {
       const res = await fetch(
-        `/api/fabrics?search=${encodeURIComponent(query)}&limit=50`,
+        `/api/my/materials/search?q=${encodeURIComponent(query)}&limit=50`,
         { signal: controller.signal },
       );
       const data = await res.json();
       if (!controller.signal.aborted) {
-        setSearchResults((data.fabrics ?? []).map(apiFabricToFabric));
+        setSearchResults(Array.isArray(data) ? data : []);
       }
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") return;
@@ -360,14 +353,14 @@ export default function FabricSelector({
     ? allSeries.find((s) => s.name === activeSeries) ?? null
     : null;
 
-  const selectedFabricId = selectedFabric?.id ?? null;
+  const selectedFabricId = selectedMaterial?.id ?? null;
 
   /** Whether the compare max has been reached and this fabric is NOT selected */
   const isCompareDisabled = (fabricId: string) =>
     compareMode && compareSelection && compareSelection.size >= maxCompare && !compareSelection.has(fabricId);
 
   /** Handle click on a fabric card: route to compare or single-select */
-  const handleFabricClick = (fabric: Fabric) => {
+  const handleFabricClick = (fabric: Material) => {
     if (compareMode && onCompareToggle) {
       onCompareToggle(fabric);
     } else {
@@ -584,14 +577,14 @@ export default function FabricSelector({
       </div>
 
       {/* Selected preview bar (panel, hidden when colors overlay open) */}
-      {selectedFabric && screen !== "colors" && (
+      {selectedMaterial && screen !== "colors" && (
         <div className="shrink-0 flex items-center gap-2.5 px-3 py-2 bg-zinc-100 rounded-xl border border-zinc-200">
           <div className="relative w-8 h-8 rounded-full overflow-hidden shrink-0">
-            <Image src={microUrl(selectedFabric.image)} alt={selectedFabric.color} fill className="object-cover" unoptimized sizes="32px" />
+            <Image src={selectedMaterial.imageUrl ?? ""} alt={selectedMaterial.color ?? selectedMaterial.name} fill className="object-cover" unoptimized sizes="32px" />
           </div>
           <div className="min-w-0">
-            <p className="text-xs font-semibold text-zinc-800 truncate">{selectedFabric.name} · {selectedFabric.color}</p>
-            <p className="text-[10px] text-zinc-500 truncate">{selectedFabric.category}</p>
+            <p className="text-xs font-semibold text-zinc-800 truncate">{selectedMaterial.name} · {selectedMaterial.color}</p>
+            <p className="text-[10px] text-zinc-500 truncate">{selectedMaterial.category}</p>
           </div>
           <span className="ml-auto text-green-400 shrink-0">
             <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
@@ -672,14 +665,14 @@ export default function FabricSelector({
                 </div>
 
                 {/* Selected preview bar (light theme) */}
-                {selectedFabric && (
+                {selectedMaterial && (
                   <div className="shrink-0 flex items-center gap-3 px-6 py-3 border-t border-zinc-100 bg-zinc-50">
                     <div className="relative w-9 h-9 rounded-full overflow-hidden shrink-0 ring-2 ring-zinc-200">
-                      <Image src={microUrl(selectedFabric.image)} alt={selectedFabric.color} fill className="object-cover" unoptimized sizes="36px" />
+                      <Image src={selectedMaterial.imageUrl ?? ""} alt={selectedMaterial.color ?? selectedMaterial.name} fill className="object-cover" unoptimized sizes="36px" />
                     </div>
                     <div className="min-w-0">
-                      <p className="text-xs font-semibold text-zinc-800 truncate">{selectedFabric.name} · {selectedFabric.color}</p>
-                      <p className="text-[10px] text-zinc-400 truncate">{selectedFabric.category}</p>
+                      <p className="text-xs font-semibold text-zinc-800 truncate">{selectedMaterial.name} · {selectedMaterial.color}</p>
+                      <p className="text-[10px] text-zinc-400 truncate">{selectedMaterial.category}</p>
                     </div>
                     <span className="ml-auto text-green-500 shrink-0">
                       <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
