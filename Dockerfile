@@ -24,6 +24,7 @@ RUN --mount=type=cache,id=textura-next,target=/app/.next/cache \
 FROM base AS runner
 WORKDIR /app
 ENV NODE_ENV=production
+RUN apk add --no-cache curl
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
